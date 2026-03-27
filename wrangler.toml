@@ -8,4 +8,4 @@ bucket = "./public"
 [[d1_databases]]
 binding = "DB"
 database_name = "abc-board-db"
-database_id = "placeholder"
+database_id = "9d48ddcd-4035-4e02-894f-9fbd0d998363"
