@@ -1,0 +1,11 @@
+name = "abc-board"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[site]
+bucket = "./public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "abc-board-db"
+database_id = "placeholder"

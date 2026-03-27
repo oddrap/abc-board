@@ -1,0 +1,20 @@
+{
+  "name": "abc-board",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute abc-board-db --local --file=./schema.sql",
+    "db:init:remote": "wrangler d1 execute abc-board-db --remote --file=./schema.sql"
+  },
+  "dependencies": {
+    "hono": "^4.12.9",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260317.1",
+    "typescript": "^6.0.2",
+    "wrangler": "^4.77.0"
+  }
+}
