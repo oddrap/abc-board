@@ -6,10 +6,6 @@ workers_dev = true
 [site]
 bucket = "./public"
 
-[[routes]]
-pattern = "app.abc-partners.com/*"
-zone_name = "abc-partners.com"
-
 [[d1_databases]]
 binding = "DB"
 database_name = "abc-board-db"
