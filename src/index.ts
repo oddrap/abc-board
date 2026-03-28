@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import { serveStatic } from "hono/cloudflare-workers";
 import { cors } from "hono/cors";
+// @ts-ignore
+import manifest from "__STATIC_CONTENT_MANIFEST";
 
 type Bindings = {
   DB: D1Database;
@@ -158,9 +160,9 @@ app.post("/api/webhook", async (c) => {
 });
 
 // ─── Static files ───
-app.use("/*", serveStatic({ root: "./" }));
+app.use("/*", serveStatic({ root: "./", manifest }));
 
 // Fallback to index.html for SPA routing
-app.get("*", serveStatic({ path: "./index.html" }));
+app.get("*", serveStatic({ path: "./index.html", manifest }));
 
 export default app;
