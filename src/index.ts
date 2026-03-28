@@ -144,7 +144,7 @@ app.post("/api/webhook", async (c) => {
               [
                 {
                   text: "📋 Open Board",
-                  web_app: { url: "https://abc-partners.capital" },
+                  web_app: { url: "https://app.abc-partners.com" },
                 },
               ],
             ],

@@ -1,9 +1,14 @@
 name = "abc-board"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
+workers_dev = true
 
 [site]
 bucket = "./public"
+
+[[routes]]
+pattern = "app.abc-partners.com/*"
+zone_name = "abc-partners.com"
 
 [[d1_databases]]
 binding = "DB"
