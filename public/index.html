@@ -784,7 +784,15 @@
   </style>
 </head>
 <body>
-  <div class="app" id="app">
+  <!-- Auth Gate -->
+  <div id="auth-gate" style="display:flex; align-items:center; justify-content:center; min-height:100vh; background:var(--bg);">
+    <div style="text-align:center; padding:24px;">
+      <div class="spinner" style="margin:0 auto 16px;"></div>
+      <p style="color:var(--text-secondary); font-size:14px;" id="auth-msg">멤버 확인 중...</p>
+    </div>
+  </div>
+
+  <div class="app" id="app" style="display:none;">
     <!-- Header -->
     <header class="header">
       <div class="header-inner">
@@ -948,6 +956,31 @@
         };
       }
     }
+
+    // ─── Auth Check ───
+    (async function checkAuth() {
+      const gate = document.getElementById('auth-gate');
+      const appEl = document.getElementById('app');
+      const authMsg = document.getElementById('auth-msg');
+
+      if (!currentUser.id) {
+        authMsg.textContent = 'Telegram에서 열어주세요.';
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/auth/check?user_id=${currentUser.id}`);
+        if (res.ok) {
+          gate.style.display = 'none';
+          appEl.style.display = '';
+        } else {
+          authMsg.innerHTML = '⛔ 접근 권한이 없습니다.<br><span style="font-size:12px;color:var(--text-muted);margin-top:8px;display:inline-block;">ABC Partners 그룹 멤버만 이용 가능합니다.</span>';
+          gate.querySelector('.spinner')?.remove();
+        }
+      } catch (e) {
+        authMsg.textContent = '서버 연결 실패. 다시 시도해주세요.';
+      }
+    })();
 
     // ─── Portfolio Data ───
     const portfolioData = [

@@ -7,11 +7,74 @@ import manifest from "__STATIC_CONTENT_MANIFEST";
 type Bindings = {
   DB: D1Database;
   BOT_TOKEN: string;
+  GROUP_CHAT_ID: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
 
 app.use("/api/*", cors());
+
+// ─── Auth: verify Telegram group membership ───
+
+app.get("/api/auth/check", async (c) => {
+  const userId = c.req.query("user_id");
+  if (!userId) return c.json({ error: "user_id required" }, 400);
+
+  const groupId = c.env.GROUP_CHAT_ID;
+  const res = await fetch(
+    `https://api.telegram.org/bot${c.env.BOT_TOKEN}/getChatMember`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: groupId, user_id: Number(userId) }),
+    }
+  );
+  const data = await res.json<any>();
+
+  if (!data.ok) return c.json({ authorized: false }, 403);
+
+  const status = data.result?.status;
+  const allowed = ["creator", "administrator", "member"];
+  if (!allowed.includes(status)) {
+    return c.json({ authorized: false, status }, 403);
+  }
+
+  return c.json({
+    authorized: true,
+    status,
+    user: data.result?.user,
+  });
+});
+
+// ─── Auth middleware for write operations ───
+
+async function verifyMember(c: any, next: any) {
+  const body = await c.req.json();
+  const authorId = body.author_id;
+  if (!authorId) return c.json({ error: "author_id required" }, 400);
+
+  const groupId = c.env.GROUP_CHAT_ID;
+  const res = await fetch(
+    `https://api.telegram.org/bot${c.env.BOT_TOKEN}/getChatMember`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: groupId, user_id: Number(authorId) }),
+    }
+  );
+  const data = await res.json<any>();
+
+  if (!data.ok) return c.json({ error: "Not a group member" }, 403);
+
+  const status = data.result?.status;
+  if (!["creator", "administrator", "member"].includes(status)) {
+    return c.json({ error: "Not a group member" }, 403);
+  }
+
+  // Store parsed body for downstream handler
+  c.set("parsedBody", body);
+  await next();
+}
 
 // ─── Posts API ───
 
@@ -40,13 +103,8 @@ app.get("/api/posts/:id", async (c) => {
   return c.json({ ...post, comments });
 });
 
-app.post("/api/posts", async (c) => {
-  const body = await c.req.json<{
-    title: string;
-    content: string;
-    author_name: string;
-    author_id: number;
-  }>();
+app.post("/api/posts", verifyMember, async (c) => {
+  const body = c.get("parsedBody") as any;
 
   if (!body.title?.trim() || !body.content?.trim()) {
     return c.json({ error: "Title and content required" }, 400);
@@ -81,13 +139,9 @@ app.delete("/api/posts/:id", async (c) => {
 
 // ─── Comments API ───
 
-app.post("/api/posts/:id/comments", async (c) => {
+app.post("/api/posts/:id/comments", verifyMember, async (c) => {
   const postId = c.req.param("id");
-  const body = await c.req.json<{
-    content: string;
-    author_name: string;
-    author_id: number;
-  }>();
+  const body = c.get("parsedBody") as any;
 
   if (!body.content?.trim()) {
     return c.json({ error: "Content required" }, 400);
