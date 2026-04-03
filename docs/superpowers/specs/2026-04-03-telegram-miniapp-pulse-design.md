@@ -62,8 +62,9 @@ Cloudflare Workers (Hono)
 | name | TEXT NOT NULL | Company/fund name |
 | status | TEXT NOT NULL | 'active', 'stale', 'dead', 'scraping' |
 | assignee_name | TEXT | Responsible team member |
-| assignee_telegram_id | INTEGER | Telegram user ID |
+| assignee_telegram_id | TEXT | Telegram user ID (stored as string — IDs can exceed JS safe integer range) |
 | logo_url | TEXT | Company logo (optional) |
+| gdrive_folder_id | TEXT | Google Drive subfolder ID for this portfolio |
 | created_at | TEXT | ISO datetime |
 | updated_at | TEXT | ISO datetime, tracks last status change |
 | last_update_at | TEXT | ISO datetime, tracks last update entry |
@@ -75,7 +76,7 @@ Cloudflare Workers (Hono)
 | id | INTEGER PK | Auto-increment |
 | portfolio_id | INTEGER FK | References portfolios.id |
 | author_name | TEXT NOT NULL | Who posted |
-| author_telegram_id | INTEGER NOT NULL | Telegram user ID |
+| author_telegram_id | TEXT NOT NULL | Telegram user ID (stored as string) |
 | title | TEXT NOT NULL | Update title (e.g. "Q1 실적 리포트") |
 | summary | TEXT | Brief summary of the update content |
 | update_date | TEXT NOT NULL | When this update is about (not created_at) |
@@ -116,7 +117,7 @@ Each tab shows count badge.
 - Status badge (colored)
 - Assignee name
 - Last update date
-- Warning indicator if no updates for 30+ days (configurable)
+- Warning indicator if stale (see below)
 
 **Long-press on card** → status change popup:
 - Four status options with colored indicators
@@ -124,7 +125,19 @@ Each tab shows count badge.
 
 **Bottom**: "+ 새 포트폴리오 등록" button
 
-**Auto-stale logic**: Portfolios with no updates for N days (default: 60) show a warning badge. Does NOT auto-change status — that's a human decision via long-press.
+### Screen 4: Portfolio Creation Form
+
+Opened from the "+ 새 포트폴리오 등록" button on Screen 1.
+
+**Fields**:
+- 회사/펀드명 (text input, required)
+- 담당자 (select from team members, optional — defaults to creator)
+- 상태 (select, defaults to '관리중')
+- 로고 (file upload, optional)
+
+**Submit** → creates portfolio in D1, returns to list
+
+**Stale warning logic**: Portfolios with `last_update_at` older than 60 days show a ⚠️ warning badge on the card. This is a visual indicator only — does NOT auto-change status. Status changes are always a human decision via long-press. The threshold (60 days) is configurable via Workers environment variable `STALE_THRESHOLD_DAYS`.
 
 ### Screen 2: Portfolio Detail
 
@@ -170,11 +183,21 @@ User selects file in Mini App
     → Response returns to frontend with GDrive link
 ```
 
+### File Upload Constraints
+
+- **Max file size**: 25 MB per file (Workers request body limit on paid plan is 100 MB, but 25 MB is practical for IR decks and reports)
+- **Frontend validation**: Check file size before upload, show error if exceeded
+- **Upload method**: Workers receives multipart form data, buffers the file, then uploads to Google Drive via REST API. For files under 5 MB, use simple upload. For 5-25 MB, use resumable upload.
+- **Timeout**: Workers CPU time limit is 30s (paid plan). Large file uploads may approach this — resumable upload mitigates by chunking.
+
 ### Google Drive Setup
 
-- Service account with Drive API access
+- **Service account**: JSON key stored in Workers secret `GDRIVE_SERVICE_ACCOUNT_KEY`
+- **Auth method**: Manual JWT signing → access token exchange (Google's Node.js SDK is too large for Workers; use Drive REST API directly)
+- **Required scope**: `https://www.googleapis.com/auth/drive.file`
 - Shared folder owned by team, service account added as editor
-- Credentials stored in Workers secrets (not D1)
+- **Folder structure**: Per-portfolio subfolders, auto-created on first upload. Folder ID cached in `portfolios` table (add `gdrive_folder_id TEXT` column).
+- Folder naming: `ABC_Portfolio_{portfolio_name}`
 
 ---
 
@@ -191,7 +214,7 @@ User selects file in Mini App
 [미니앱에서 보기]
 ```
 
-**Stale portfolio reminder** (weekly, configurable):
+**Stale portfolio reminder** (weekly, via Cloudflare Workers Cron Trigger `0 9 * * 1` — every Monday 9AM):
 ```
 ⚠️ 확인필요 포트폴리오 4건
 - TrustToken (68일 미갱신)
@@ -210,18 +233,22 @@ User selects file in Mini App
 ## API Routes
 
 ```
-GET  /api/portfolios              — list all, filterable by status
-POST /api/portfolios              — create new portfolio
-PUT  /api/portfolios/:id          — update portfolio (status, assignee, etc.)
+GET    /api/portfolios              — list all, filterable by status
+POST   /api/portfolios              — create new portfolio
+PUT    /api/portfolios/:id          — update portfolio (status, assignee, etc.)
+DELETE /api/portfolios/:id          — soft delete (sets status to 'archived')
 
-GET  /api/portfolios/:id/updates  — list updates for a portfolio
-POST /api/portfolios/:id/updates  — create update (with file upload)
+GET    /api/portfolios/:id/updates  — list updates for a portfolio
+POST   /api/portfolios/:id/updates  — create update (with file upload)
+DELETE /api/portfolios/:id/updates/:updateId — delete an update
 
-POST /api/files/upload            — upload file to Google Drive, return link
+POST   /api/files/upload            — upload file to Google Drive, return link
 
-POST /api/telegram/webhook        — incoming bot webhook
-POST /api/telegram/notify         — send notification to group (internal)
+POST   /api/telegram/webhook        — incoming bot webhook
+POST   /api/telegram/notify         — send notification to group (internal)
 ```
+
+Note: Portfolio "delete" is a soft delete (status → 'archived', hidden from default view). Hard delete is out of scope for v1.
 
 ---
 
@@ -233,6 +260,19 @@ Telegram Mini Apps provide `initData` with user identity (user ID, name, etc.) s
 - Backend validates HMAC signature against bot token
 - User identity extracted from validated data
 - No user registration flow — Telegram identity is sufficient for 5 people
+
+---
+
+## Error Handling
+
+- **File upload failure**: Show error toast in frontend, user can retry. If GDrive upload fails after D1 write, the update is saved without attachment — user can add attachment later.
+- **Bot notification failure**: Non-blocking. Update is saved regardless. Failed notifications are logged but not retried (acceptable for 5-person team).
+- **Network errors**: Frontend shows inline error message with retry option. No offline mode in v1.
+- **Partial success**: D1 write is the source of truth. If bot notification or GDrive upload fails, the core data (update record) is preserved.
+
+## CORS
+
+Not required — frontend static assets and API are served from the same Workers origin. All requests are same-origin.
 
 ---
 
@@ -260,9 +300,13 @@ Telegram Mini Apps provide `initData` with user identity (user ID, name, etc.) s
 
 ---
 
+## Data Migration
+
+- Schema created via `wrangler d1 execute` with SQL migration file
+- Initial portfolio data: manually entered via the app, or optionally seeded from a script using the existing company logos in `abc-board/public/assets/logos/` as a starting list
+- No automated migration from Google Sheets — portfolios are managed directly in the app going forward
+
 ## Open Questions
 
-1. **Google Drive folder structure**: One shared folder flat, or per-portfolio subfolders?
-   - Recommendation: per-portfolio subfolders for organization
-2. **Stale threshold**: 60 days default — is this right for a family office cadence?
-3. **Existing portfolio data**: Are the logos in abc-board/public/assets/logos/ the current portfolio? Should we seed the DB from them?
+1. **Stale threshold**: 60 days default — is this right for a family office cadence?
+2. **Existing portfolio data**: Are the logos in abc-board/public/assets/logos/ the current portfolio? Should we seed the DB from them?
