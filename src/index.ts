@@ -4,6 +4,14 @@ import { cors } from "hono/cors";
 // @ts-ignore
 import manifest from "__STATIC_CONTENT_MANIFEST";
 
+// ─── Constants ───
+
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
+const MAX_PINS_PER_USER = 5;
+const APP_VERSION = "0.5.0";
+
+// ─── Types ───
+
 type Bindings = {
   DB: D1Database;
   BOT_TOKEN: string;
@@ -23,46 +31,68 @@ app.use("/api/*", cors());
 app.use("*", async (c, next) => {
   await next();
   const path = c.req.path;
-  if (path.endsWith('.html') || path === '/') {
-    c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-    c.header('Pragma', 'no-cache');
-    c.header('Expires', '0');
+  if (path.endsWith(".html") || path === "/") {
+    c.header("Cache-Control", "no-cache, no-store, must-revalidate");
+    c.header("Pragma", "no-cache");
+    c.header("Expires", "0");
   }
 });
 
 // ─── Whitelist: authorized Telegram user IDs ───
 
 const ALLOWED_USERS: Record<string, string> = {
-  "38070088": "이준민",    // June
-  "63576124": "김태근",    // Taegun
-  "52860459": "김태윤",    // Taeyun
-  "87243438": "김완섭",    // Wansub
-  "6612424960": "강영구",  // Younggu
+  "38070088": "이준민",
+  "63576124": "김태근",
+  "52860459": "김태윤",
+  "87243438": "김완섭",
+  "6612424960": "강영구",
 };
 
 // ─── Telegram initData HMAC-SHA256 validation ───
 
-async function validateInitData(initData: string, botToken: string): Promise<Record<string, any> | null> {
+async function validateInitData(
+  initData: string,
+  botToken: string
+): Promise<Record<string, any> | null> {
   try {
     const params = new URLSearchParams(initData);
     const hash = params.get("hash");
     if (!hash) return null;
 
     params.delete("hash");
-    const entries = Array.from(params.entries()).sort(([a], [b]) => a.localeCompare(b));
+    const entries = Array.from(params.entries()).sort(([a], [b]) =>
+      a.localeCompare(b)
+    );
     const dataCheckString = entries.map(([k, v]) => `${k}=${v}`).join("\n");
 
-    // HMAC-SHA256 validation
     const encoder = new TextEncoder();
     const secretKey = await crypto.subtle.importKey(
-      "raw", encoder.encode("WebAppData"), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+      "raw",
+      encoder.encode("WebAppData"),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
     );
-    const secret = await crypto.subtle.sign("HMAC", secretKey, encoder.encode(botToken));
+    const secret = await crypto.subtle.sign(
+      "HMAC",
+      secretKey,
+      encoder.encode(botToken)
+    );
     const signingKey = await crypto.subtle.importKey(
-      "raw", secret, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+      "raw",
+      secret,
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
     );
-    const signature = await crypto.subtle.sign("HMAC", signingKey, encoder.encode(dataCheckString));
-    const hexHash = Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, "0")).join("");
+    const signature = await crypto.subtle.sign(
+      "HMAC",
+      signingKey,
+      encoder.encode(dataCheckString)
+    );
+    const hexHash = Array.from(new Uint8Array(signature))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
 
     if (hexHash !== hash) return null;
 
@@ -79,20 +109,13 @@ async function validateInitData(initData: string, botToken: string): Promise<Rec
 async function authMiddleware(c: any, next: any) {
   const initData = c.req.header("X-Telegram-Init-Data");
 
-  // Development mode: no initData = dev access (local only)
   if (!initData) {
-    if (c.req.url.includes("localhost") || c.req.url.includes("127.0.0.1")) {
-      c.set("user", { id: 0, first_name: "Dev", last_name: "User" });
-      await next();
-      return;
-    }
     return c.json({ error: "Unauthorized" }, 401);
   }
 
   const user = await validateInitData(initData, c.env.BOT_TOKEN);
   if (!user) return c.json({ error: "Invalid signature" }, 401);
 
-  // Whitelist check
   const userId = String(user.id);
   if (!ALLOWED_USERS[userId]) {
     return c.json({ error: "Access denied" }, 403);
@@ -104,22 +127,25 @@ async function authMiddleware(c: any, next: any) {
 
 // ─── Google Drive helpers ───
 
-async function getGDriveAccessToken(serviceAccountKey: string): Promise<string> {
+async function getGDriveAccessToken(
+  serviceAccountKey: string
+): Promise<string> {
   const sa = JSON.parse(serviceAccountKey);
   const now = Math.floor(Date.now() / 1000);
 
   const header = btoa(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const payload = btoa(JSON.stringify({
-    iss: sa.client_email,
-    scope: "https://www.googleapis.com/auth/drive",
-    aud: "https://oauth2.googleapis.com/token",
-    iat: now,
-    exp: now + 3600,
-  }));
+  const payload = btoa(
+    JSON.stringify({
+      iss: sa.client_email,
+      scope: "https://www.googleapis.com/auth/drive",
+      aud: "https://oauth2.googleapis.com/token",
+      iat: now,
+      exp: now + 3600,
+    })
+  );
 
   const signInput = `${header}.${payload}`;
 
-  // Import private key for signing
   const pemContents = sa.private_key
     .replace(/-----BEGIN PRIVATE KEY-----/, "")
     .replace(/-----END PRIVATE KEY-----/, "")
@@ -141,7 +167,9 @@ async function getGDriveAccessToken(serviceAccountKey: string): Promise<string> 
   );
 
   const jwt = `${signInput}.${btoa(String.fromCharCode(...new Uint8Array(signature)))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "")}`;
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "")}`;
 
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -150,6 +178,9 @@ async function getGDriveAccessToken(serviceAccountKey: string): Promise<string> 
   });
 
   const tokenData = await tokenRes.json<any>();
+  if (!tokenData.access_token) {
+    throw new Error(`GDrive auth failed: ${JSON.stringify(tokenData)}`);
+  }
   return tokenData.access_token;
 }
 
@@ -158,18 +189,21 @@ async function createGDriveFolder(
   name: string,
   parentId: string
 ): Promise<string> {
-  const res = await fetch("https://www.googleapis.com/drive/v3/files?supportsAllDrives=true", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      name,
-      mimeType: "application/vnd.google-apps.folder",
-      parents: [parentId],
-    }),
-  });
+  const res = await fetch(
+    "https://www.googleapis.com/drive/v3/files?supportsAllDrives=true",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name,
+        mimeType: "application/vnd.google-apps.folder",
+        parents: [parentId],
+      }),
+    }
+  );
   const data = await res.json<any>();
   return data.id;
 }
@@ -180,22 +214,18 @@ async function uploadToGDrive(
   folderId: string,
   fileName: string
 ): Promise<{ id: string; url: string }> {
-  const metadata = JSON.stringify({
-    name: fileName,
-    parents: [folderId],
-  });
-
+  const metadata = JSON.stringify({ name: fileName, parents: [folderId] });
   const boundary = "---boundary" + Date.now();
-  const body = [
-    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n`,
-    `--${boundary}\r\nContent-Type: ${file.type || "application/octet-stream"}\r\n\r\n`,
-  ];
 
   const fileBytes = await file.arrayBuffer();
   const encoder = new TextEncoder();
   const parts = [
-    encoder.encode(body[0]),
-    encoder.encode(body[1]),
+    encoder.encode(
+      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n`
+    ),
+    encoder.encode(
+      `--${boundary}\r\nContent-Type: ${file.type || "application/octet-stream"}\r\n\r\n`
+    ),
     new Uint8Array(fileBytes),
     encoder.encode(`\r\n--${boundary}--`),
   ];
@@ -223,32 +253,73 @@ async function uploadToGDrive(
   const data = await res.json<any>();
   return {
     id: data.id,
-    url: data.webViewLink || `https://drive.google.com/file/d/${data.id}/view`,
+    url:
+      data.webViewLink ||
+      `https://drive.google.com/file/d/${data.id}/view`,
   };
 }
 
-// ─── Bot notification helper ───
+async function deleteFromGDrive(
+  accessToken: string,
+  fileId: string
+): Promise<void> {
+  await fetch(
+    `https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true`,
+    { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+}
 
-async function notifyGroup(env: Bindings, text: string, miniAppPath?: string) {
-  const payload: any = {
-    chat_id: env.GROUP_CHAT_ID,
-    text,
-    parse_mode: "HTML",
-  };
+// ─── Bot helpers ───
 
-  if (miniAppPath && env.MINI_APP_URL) {
-    payload.reply_markup = {
-      inline_keyboard: [[
-        { text: "📋 미니앱에서 보기", web_app: { url: `${env.MINI_APP_URL}${miniAppPath}` } },
-      ]],
-    };
-  }
-
-  await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
+async function sendBotMessage(
+  botToken: string,
+  chatId: string | number,
+  text: string,
+  extra: Record<string, any> = {}
+) {
+  await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ chat_id: chatId, text, ...extra }),
   });
+}
+
+async function notifyGroup(
+  env: Bindings,
+  text: string,
+  miniAppPath?: string
+) {
+  const extra: any = { parse_mode: "HTML" };
+  if (miniAppPath && env.MINI_APP_URL) {
+    extra.reply_markup = {
+      inline_keyboard: [
+        [
+          {
+            text: "📋 미니앱에서 보기",
+            web_app: { url: `${env.MINI_APP_URL}${miniAppPath}` },
+          },
+        ],
+      ],
+    };
+  }
+  await sendBotMessage(env.BOT_TOKEN, env.GROUP_CHAT_ID, text, extra);
+}
+
+// ─── Shared: stale portfolio query ───
+
+async function getStalePortfolios(db: D1Database, threshold: number) {
+  const { results } = await db
+    .prepare(
+      `SELECT name,
+        CAST(julianday('now') - julianday(COALESCE(last_update_at, created_at)) AS INTEGER) as days_since
+      FROM portfolios
+      WHERE status NOT IN ('archived', 'dead')
+        AND julianday('now') - julianday(COALESCE(last_update_at, created_at)) > ?
+      ORDER BY days_since DESC`
+    )
+    .bind(threshold)
+    .all();
+  return results;
 }
 
 // ─── Portfolio API ───
@@ -267,7 +338,7 @@ app.get("/api/portfolios", authMiddleware, async (c) => {
       CASE WHEN up.portfolio_id IS NOT NULL THEN 1 ELSE 0 END as is_pinned,
       CASE
         WHEN p.last_update_at IS NOT NULL
-          AND julianday('now') - julianday(p.last_update_at) > ${threshold}
+          AND julianday('now') - julianday(p.last_update_at) > ?
         THEN 1 ELSE 0
       END as is_stale_warning
     FROM portfolios p
@@ -275,13 +346,15 @@ app.get("/api/portfolios", authMiddleware, async (c) => {
     WHERE p.status != 'archived'
   `;
 
+  const binds: any[] = [threshold, userId];
+
   if (status) {
     query += ` AND p.status = ?`;
-    const { results } = await c.env.DB.prepare(query + " ORDER BY is_pinned DESC, p.name ASC").bind(userId, status).all();
-    return c.json(results);
+    binds.push(status);
   }
 
-  const { results } = await c.env.DB.prepare(query + " ORDER BY is_pinned DESC, p.name ASC").bind(userId).all();
+  query += " ORDER BY is_pinned DESC, p.name ASC";
+  const { results } = await c.env.DB.prepare(query).bind(...binds).all();
   return c.json(results);
 });
 
@@ -291,6 +364,14 @@ app.post("/api/portfolios/:id/pin", authMiddleware, async (c) => {
   const portfolioId = c.req.param("id");
   const user = c.get("user") as any;
   const userId = String(user.id);
+
+  // Enforce pin limit
+  const { results: existing } = await c.env.DB.prepare(
+    "SELECT COUNT(*) as cnt FROM user_pins WHERE telegram_id = ?"
+  ).bind(userId).all();
+  if ((existing[0] as any)?.cnt >= MAX_PINS_PER_USER) {
+    return c.json({ error: `최대 ${MAX_PINS_PER_USER}개까지 핀 가능합니다` }, 400);
+  }
 
   await c.env.DB.prepare(
     "INSERT OR IGNORE INTO user_pins (telegram_id, portfolio_id) VALUES (?, ?)"
@@ -323,7 +404,8 @@ app.post("/api/portfolios", authMiddleware, async (c) => {
   ).bind(
     body.name.trim(),
     body.status || "active",
-    body.assignee_name || `${user.first_name} ${user.last_name || ""}`.trim(),
+    body.assignee_name ||
+      `${user.first_name} ${user.last_name || ""}`.trim(),
     String(user.id),
     body.logo_url || null
   ).run();
@@ -335,19 +417,43 @@ app.put("/api/portfolios/:id", authMiddleware, async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json<any>();
 
-  const existing = await c.env.DB.prepare("SELECT id FROM portfolios WHERE id = ?").bind(id).first();
+  const existing = await c.env.DB.prepare(
+    "SELECT id FROM portfolios WHERE id = ?"
+  ).bind(id).first();
   if (!existing) return c.json({ error: "Not found" }, 404);
 
   const sets: string[] = [];
   const values: any[] = [];
 
-  if (body.name !== undefined) { sets.push("name = ?"); values.push(body.name); }
-  if (body.status !== undefined) { sets.push("status = ?"); values.push(body.status); }
-  if (body.assignee_name !== undefined) { sets.push("assignee_name = ?"); values.push(body.assignee_name); }
-  if (body.assignee_telegram_id !== undefined) { sets.push("assignee_telegram_id = ?"); values.push(body.assignee_telegram_id); }
-  if (body.logo_url !== undefined) { sets.push("logo_url = ?"); values.push(body.logo_url); }
+  if (body.name !== undefined) {
+    sets.push("name = ?");
+    values.push(body.name);
+  }
+  if (body.status !== undefined) {
+    sets.push("status = ?");
+    values.push(body.status);
+    // Auto-unpin all users when moved out of active
+    if (body.status !== "active") {
+      await c.env.DB.prepare(
+        "DELETE FROM user_pins WHERE portfolio_id = ?"
+      ).bind(id).run();
+    }
+  }
+  if (body.assignee_name !== undefined) {
+    sets.push("assignee_name = ?");
+    values.push(body.assignee_name);
+  }
+  if (body.assignee_telegram_id !== undefined) {
+    sets.push("assignee_telegram_id = ?");
+    values.push(body.assignee_telegram_id);
+  }
+  if (body.logo_url !== undefined) {
+    sets.push("logo_url = ?");
+    values.push(body.logo_url);
+  }
 
-  if (sets.length === 0) return c.json({ error: "No fields to update" }, 400);
+  if (sets.length === 0)
+    return c.json({ error: "No fields to update" }, 400);
 
   sets.push("updated_at = datetime('now')");
   values.push(id);
@@ -361,6 +467,10 @@ app.put("/api/portfolios/:id", authMiddleware, async (c) => {
 
 app.delete("/api/portfolios/:id", authMiddleware, async (c) => {
   const id = c.req.param("id");
+  // Soft delete + unpin
+  await c.env.DB.prepare(
+    "DELETE FROM user_pins WHERE portfolio_id = ?"
+  ).bind(id).run();
   await c.env.DB.prepare(
     "UPDATE portfolios SET status = 'archived', updated_at = datetime('now') WHERE id = ?"
   ).bind(id).run();
@@ -387,7 +497,9 @@ app.get("/api/portfolios/:id/updates", authMiddleware, async (c) => {
 
   const parsed = updates.map((u: any) => ({
     ...u,
-    attachments: JSON.parse(u.attachments_json).filter((a: any) => a.id !== null),
+    attachments: JSON.parse(u.attachments_json).filter(
+      (a: any) => a.id !== null
+    ),
     attachments_json: undefined,
   }));
 
@@ -406,34 +518,37 @@ app.post("/api/portfolios/:id/updates", authMiddleware, async (c) => {
 
   if (!title?.trim()) return c.json({ error: "Title required" }, 400);
 
-  const portfolio = await c.env.DB.prepare("SELECT * FROM portfolios WHERE id = ?")
-    .bind(portfolioId).first<any>();
+  const portfolio = await c.env.DB.prepare(
+    "SELECT * FROM portfolios WHERE id = ?"
+  ).bind(portfolioId).first<any>();
   if (!portfolio) return c.json({ error: "Portfolio not found" }, 404);
 
-  // Insert update
+  const authorName = `${user.first_name} ${user.last_name || ""}`.trim();
+  const dateValue = updateDate || new Date().toISOString().split("T")[0];
+
   const result = await c.env.DB.prepare(
     `INSERT INTO portfolio_updates (portfolio_id, author_name, author_telegram_id, title, summary, update_date)
      VALUES (?, ?, ?, ?, ?, ?)`
   ).bind(
     portfolioId,
-    `${user.first_name} ${user.last_name || ""}`.trim(),
+    authorName,
     String(user.id),
     title.trim(),
     summary?.trim() || null,
-    updateDate || new Date().toISOString().split("T")[0]
+    dateValue
   ).run();
 
   const updateId = result.meta.last_row_id;
-
-  // Handle file uploads
-  const files = formData.getAll("files") as File[];
   const attachments: any[] = [];
 
+  // Handle file uploads to Google Drive
+  const files = formData.getAll("files") as File[];
   if (files.length > 0 && c.env.GDRIVE_SERVICE_ACCOUNT_KEY) {
     try {
-      const accessToken = await getGDriveAccessToken(c.env.GDRIVE_SERVICE_ACCOUNT_KEY);
+      const accessToken = await getGDriveAccessToken(
+        c.env.GDRIVE_SERVICE_ACCOUNT_KEY
+      );
 
-      // Ensure portfolio folder exists
       let folderId = portfolio.gdrive_folder_id;
       if (!folderId) {
         folderId = await createGDriveFolder(
@@ -447,9 +562,13 @@ app.post("/api/portfolios/:id/updates", authMiddleware, async (c) => {
       }
 
       for (const file of files) {
-        if (file.size > 25 * 1024 * 1024) continue; // Skip files > 25MB
-        const datePrefix = updateDate || new Date().toISOString().split("T")[0];
-        const uploaded = await uploadToGDrive(accessToken, file, folderId, `${datePrefix}_${file.name}`);
+        if (file.size > MAX_FILE_SIZE) continue;
+        const uploaded = await uploadToGDrive(
+          accessToken,
+          file,
+          folderId,
+          `${dateValue}_${file.name}`
+        );
 
         await c.env.DB.prepare(
           `INSERT INTO attachments (update_id, file_name, file_type, gdrive_url, gdrive_file_id)
@@ -459,7 +578,7 @@ app.post("/api/portfolios/:id/updates", authMiddleware, async (c) => {
         attachments.push({ file_name: file.name, gdrive_url: uploaded.url });
       }
     } catch (e: any) {
-      console.error("GDrive upload error:", e?.message || e, JSON.stringify(e));
+      console.error("GDrive upload error:", e?.message || e);
     }
   }
 
@@ -473,22 +592,22 @@ app.post("/api/portfolios/:id/updates", authMiddleware, async (c) => {
     attachments.push({ file_name: "Link", gdrive_url: link.trim() });
   }
 
-  // Update portfolio's last_update_at
+  // Update portfolio timestamp
   await c.env.DB.prepare(
     "UPDATE portfolios SET last_update_at = datetime('now'), updated_at = datetime('now') WHERE id = ?"
   ).bind(portfolioId).run();
 
-  // Bot notification
+  // Bot notification (non-blocking)
   try {
-    const attachCount = attachments.length;
-    const attachText = attachCount > 0 ? `\n📎 첨부 ${attachCount}건` : "";
+    const attachText =
+      attachments.length > 0 ? `\n📎 첨부 ${attachments.length}건` : "";
     await notifyGroup(
       c.env,
-      `📋 <b>${portfolio.name}</b> — 새 업데이트\n제목: ${title}${attachText}\n작성: ${user.first_name}`,
+      `📋 <b>${portfolio.name}</b> — 새 업데이트\n제목: ${title}${attachText}\n작성: ${authorName}`,
       `#/portfolio/${portfolioId}`
     );
-  } catch (e) {
-    console.error("Bot notification error:", e);
+  } catch {
+    // Non-critical: notification failure doesn't affect update save
   }
 
   return c.json({ id: updateId, attachments }, 201);
@@ -500,18 +619,16 @@ app.delete("/api/portfolios/:id/updates/:updateId", authMiddleware, async (c) =>
   // Delete files from Google Drive
   if (c.env.GDRIVE_SERVICE_ACCOUNT_KEY) {
     try {
-      const { results: attachments } = await c.env.DB.prepare(
+      const { results: atts } = await c.env.DB.prepare(
         "SELECT gdrive_file_id FROM attachments WHERE update_id = ? AND gdrive_file_id != 'manual'"
       ).bind(updateId).all();
 
-      if (attachments.length > 0) {
-        const accessToken = await getGDriveAccessToken(c.env.GDRIVE_SERVICE_ACCOUNT_KEY);
-        for (const att of attachments) {
-          const fileId = (att as any).gdrive_file_id;
-          await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true`, {
-            method: "DELETE",
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
+      if (atts.length > 0) {
+        const accessToken = await getGDriveAccessToken(
+          c.env.GDRIVE_SERVICE_ACCOUNT_KEY
+        );
+        for (const att of atts) {
+          await deleteFromGDrive(accessToken, (att as any).gdrive_file_id);
         }
       }
     } catch (e: any) {
@@ -519,8 +636,21 @@ app.delete("/api/portfolios/:id/updates/:updateId", authMiddleware, async (c) =>
     }
   }
 
-  await c.env.DB.prepare("DELETE FROM attachments WHERE update_id = ?").bind(updateId).run();
-  await c.env.DB.prepare("DELETE FROM portfolio_updates WHERE id = ?").bind(updateId).run();
+  await c.env.DB.prepare(
+    "DELETE FROM attachments WHERE update_id = ?"
+  ).bind(updateId).run();
+  await c.env.DB.prepare(
+    "DELETE FROM portfolio_updates WHERE id = ?"
+  ).bind(updateId).run();
+
+  // Recalculate portfolio's last_update_at
+  const portfolioId = c.req.param("id");
+  await c.env.DB.prepare(`
+    UPDATE portfolios SET last_update_at = (
+      SELECT MAX(update_date) FROM portfolio_updates WHERE portfolio_id = ?
+    ) WHERE id = ?
+  `).bind(portfolioId, portfolioId).run();
+
   return c.json({ ok: true });
 });
 
@@ -536,9 +666,12 @@ app.post("/api/files/upload", authMiddleware, async (c) => {
   const folderId = formData.get("folder_id") as string;
 
   if (!file) return c.json({ error: "File required" }, 400);
-  if (file.size > 25 * 1024 * 1024) return c.json({ error: "File too large (max 25MB)" }, 400);
+  if (file.size > MAX_FILE_SIZE)
+    return c.json({ error: "File too large (max 25MB)" }, 400);
 
-  const accessToken = await getGDriveAccessToken(c.env.GDRIVE_SERVICE_ACCOUNT_KEY);
+  const accessToken = await getGDriveAccessToken(
+    c.env.GDRIVE_SERVICE_ACCOUNT_KEY
+  );
   const uploaded = await uploadToGDrive(
     accessToken,
     file,
@@ -549,156 +682,52 @@ app.post("/api/files/upload", authMiddleware, async (c) => {
   return c.json(uploaded);
 });
 
-// ─── AI Summary ───
+// ─── App info ───
 
-app.post("/api/summarize", authMiddleware, async (c) => {
-  if (!c.env.GEMINI_API_KEY) {
-    return c.json({ summary: "" });
-  }
-
-  const formData = await c.req.formData();
-  const file = formData.get("file") as File;
-  if (!file) return c.json({ error: "File required" }, 400);
-  if (file.size > 25 * 1024 * 1024) return c.json({ error: "File too large" }, 400);
-
-  try {
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    // Chunk-safe base64 encoding (btoa with spread crashes on large files)
-    let binary = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-    }
-    const base64 = btoa(binary);
-    const mimeType = file.type || "application/octet-stream";
-
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${c.env.GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              {
-                inlineData: {
-                  mimeType,
-                  data: base64,
-                },
-              },
-              {
-                text: "이 문서의 핵심 내용을 한국어로 3~5줄로 요약해주세요. 투자/포트폴리오 관점에서 중요한 수치와 인사이트를 중심으로 작성해주세요. 마크다운 없이 일반 텍스트로 작성하세요.",
-              },
-            ],
-          }],
-          generationConfig: {
-            maxOutputTokens: 300,
-            temperature: 0.3,
-          },
-        }),
-      }
-    );
-
-    const data = await res.json<any>();
-    const summary = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    return c.json({ summary: summary.trim() });
-  } catch (e) {
-    console.error("Gemini error:", e);
-    return c.json({ summary: "" });
-  }
-});
-
-// ─── Debug: test GDrive auth ───
-app.get("/api/debug/gdrive", async (c) => {
-  if (!c.env.GDRIVE_SERVICE_ACCOUNT_KEY) return c.json({ error: "No key configured" });
-  try {
-    const token = await getGDriveAccessToken(c.env.GDRIVE_SERVICE_ACCOUNT_KEY);
-    // Try listing files in the shared drive
-    const res = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q='${c.env.GDRIVE_ROOT_FOLDER_ID}'+in+parents&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id,name)`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    const data = await res.json();
-    return c.json({ auth: "ok", token_prefix: token.substring(0, 20) + "...", drive_response: data });
-  } catch (e: any) {
-    return c.json({ error: e?.message || String(e), stack: e?.stack });
-  }
-});
-
-// ─── Legacy Posts API (keep existing board working) ───
-
-app.get("/api/posts", async (c) => {
-  const { results } = await c.env.DB.prepare(
-    `SELECT p.*,
-       (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comment_count
-     FROM posts p ORDER BY p.created_at DESC`
-  ).all();
-  return c.json(results);
-});
-
-app.get("/api/posts/:id", async (c) => {
-  const id = c.req.param("id");
-  const post = await c.env.DB.prepare("SELECT * FROM posts WHERE id = ?").bind(id).first();
-  if (!post) return c.json({ error: "Not found" }, 404);
-  const { results: comments } = await c.env.DB.prepare(
-    "SELECT * FROM comments WHERE post_id = ? ORDER BY created_at ASC"
-  ).bind(id).all();
-  return c.json({ ...post, comments });
+app.get("/api/info", (c) => {
+  return c.json({ version: APP_VERSION });
 });
 
 // ─── Telegram Bot webhook ───
 
 app.post("/api/webhook", async (c) => {
   const update = await c.req.json<any>();
+  const text = update.message?.text;
+  const chatId = update.message?.chat?.id;
 
-  if (update.message?.text === "/start") {
-    const chatId = update.message.chat.id;
-    await fetch(`https://api.telegram.org/bot${c.env.BOT_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: "ABC Pulse 📊\n\n포트폴리오 현황을 확인하세요.",
-        reply_markup: {
-          inline_keyboard: [[
-            { text: "📊 Portfolio Pulse", web_app: { url: c.env.MINI_APP_URL || "https://app.abc-partners.com" } },
-          ]],
-        },
-      }),
+  if (!text || !chatId) return c.json({ ok: true });
+
+  if (text === "/start") {
+    await sendBotMessage(c.env.BOT_TOKEN, chatId, "ABC Pulse 📊\n\n포트폴리오 현황을 확인하세요.", {
+      reply_markup: {
+        inline_keyboard: [[
+          {
+            text: "📊 Portfolio Pulse",
+            web_app: {
+              url: c.env.MINI_APP_URL || "https://abc-board.oddrecord7079.workers.dev",
+            },
+          },
+        ]],
+      },
     });
   }
 
-  if (update.message?.text === "/stale") {
+  if (text === "/stale") {
     const threshold = parseInt(c.env.STALE_THRESHOLD_DAYS || "60");
-    const { results } = await c.env.DB.prepare(`
-      SELECT name,
-        CAST(julianday('now') - julianday(COALESCE(last_update_at, created_at)) AS INTEGER) as days_since
-      FROM portfolios
-      WHERE status NOT IN ('archived', 'dead')
-        AND julianday('now') - julianday(COALESCE(last_update_at, created_at)) > ?
-      ORDER BY days_since DESC
-    `).bind(threshold).all();
+    const results = await getStalePortfolios(c.env.DB, threshold);
 
     if (results.length === 0) {
-      await fetch(`https://api.telegram.org/bot${c.env.BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: update.message.chat.id,
-          text: "✅ 미갱신 포트폴리오가 없습니다!",
-        }),
-      });
+      await sendBotMessage(c.env.BOT_TOKEN, chatId, "✅ 미갱신 포트폴리오가 없습니다!");
     } else {
-      const list = results.map((r: any) => `• ${r.name} (${r.days_since}일 미갱신)`).join("\n");
-      await fetch(`https://api.telegram.org/bot${c.env.BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: update.message.chat.id,
-          text: `⚠️ 확인필요 포트폴리오 ${results.length}건\n\n${list}`,
-          parse_mode: "HTML",
-        }),
-      });
+      const list = results
+        .map((r: any) => `• ${r.name} (${r.days_since}일 미갱신)`)
+        .join("\n");
+      await sendBotMessage(
+        c.env.BOT_TOKEN,
+        chatId,
+        `⚠️ 확인필요 포트폴리오 ${results.length}건\n\n${list}`,
+        { parse_mode: "HTML" }
+      );
     }
   }
 
@@ -713,19 +742,18 @@ app.get("*", serveStatic({ path: "./index.html", manifest }));
 
 export default {
   fetch: app.fetch,
-  async scheduled(event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) {
+  async scheduled(
+    event: ScheduledEvent,
+    env: Bindings,
+    ctx: ExecutionContext
+  ) {
     const threshold = parseInt(env.STALE_THRESHOLD_DAYS || "60");
-    const { results } = await env.DB.prepare(`
-      SELECT name,
-        CAST(julianday('now') - julianday(COALESCE(last_update_at, created_at)) AS INTEGER) as days_since
-      FROM portfolios
-      WHERE status NOT IN ('archived', 'dead')
-        AND julianday('now') - julianday(COALESCE(last_update_at, created_at)) > ?
-      ORDER BY days_since DESC
-    `).bind(threshold).all();
+    const results = await getStalePortfolios(env.DB, threshold);
 
     if (results.length > 0) {
-      const list = results.map((r: any) => `• ${r.name} (${r.days_since}일 미갱신)`).join("\n");
+      const list = results
+        .map((r: any) => `• ${r.name} (${r.days_since}일 미갱신)`)
+        .join("\n");
       await notifyGroup(
         env,
         `⚠️ 주간 포트폴리오 점검\n확인필요 ${results.length}건\n\n${list}`,

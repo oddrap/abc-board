@@ -310,11 +310,9 @@
     .row-menu-btn:active { color: var(--text-1); }
 
     .row-pin {
-      font-family: var(--font-mono);
-      font-size: 9px;
-      color: var(--accent);
-      letter-spacing: 0.04em;
+      font-size: 12px;
       margin-left: 4px;
+      vertical-align: middle;
     }
 
     .row-stale-mark {
@@ -936,7 +934,7 @@
     <div class="header-top">
       <div class="wordmark">
         <img src="/assets/logo.png" alt="ABC Partners">
-        <span class="count">v0.3.0</span>
+        <span class="count" id="app-version">v0.5.0</span>
       </div>
       <button class="add-btn" id="fab-add">+ New</button>
     </div>
@@ -1116,6 +1114,13 @@
     } catch (e) { console.error('Load error:', e); }
   }
 
+  const MAX_FILE_SIZE = 25 * 1024 * 1024;
+
+  function esc(str) {
+    if (!str) return '';
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
   function formatSummary(text) {
     // Split by numbered sections: "1. 매출 현황 요약", "2. 문제 상황 요약", etc.
     const sections = text.split(/(?=\d+\.\s)/);
@@ -1159,26 +1164,27 @@
     }
 
     list.innerHTML = portfolios.map(p => {
+      const safeName = esc(p.name);
       const logoHtml = p.logo_url
-        ? `<img class="row-logo" src="${p.logo_url}" alt="${p.name}" onerror="this.outerHTML='<div class=\\'row-logo placeholder\\'>${p.name[0]}</div>'">`
-        : `<div class="row-logo placeholder">${p.name[0]}</div>`;
+        ? `<img class="row-logo" src="${esc(p.logo_url)}" alt="${safeName}" onerror="this.outerHTML='<div class=\\'row-logo placeholder\\'>${safeName[0]}</div>'">`
+        : `<div class="row-logo placeholder">${safeName[0]}</div>`;
 
       const lastUpdate = p.last_update_at
         ? new Date(p.last_update_at + 'Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
         : '\u2014';
 
       const staleMark = p.is_stale_warning ? '<span class="row-stale-mark"></span>' : '';
-      const pinMark = p.is_pinned ? '<span class="row-pin">PIN</span>' : '';
+      const pinMark = p.is_pinned ? '<span class="row-pin">📌</span>' : '';
       const preview = p.latest_update_title
-        ? `<div class="row-preview">${p.latest_update_title}</div>` : '';
+        ? `<div class="row-preview">${esc(p.latest_update_title)}</div>` : '';
 
       return `
         <div class="row" data-id="${p.id}" onclick="openDetail(${p.id})">
           <div class="row-indicator ${p.status}"></div>
           ${logoHtml}
           <div class="row-info">
-            <div class="row-name">${p.name}${pinMark}${staleMark}</div>
-            <div class="row-meta">${p.assignee_name || 'Unassigned'}</div>
+            <div class="row-name">${safeName}${pinMark}${staleMark}</div>
+            <div class="row-meta">${esc(p.assignee_name) || 'Unassigned'}</div>
             ${preview}
           </div>
           <div class="row-right">
@@ -1243,7 +1249,7 @@
 
     list.innerHTML = updates.map(u => {
       const attachHtml = (u.attachments || []).map(a =>
-        `<a class="attachment-link" href="${a.gdrive_url}" target="_blank">${a.file_name}</a>`
+        `<a class="attachment-link" href="${esc(a.gdrive_url)}" target="_blank">${esc(a.file_name)}</a>`
       ).join('');
 
       const summaryHtml = u.summary
@@ -1253,8 +1259,8 @@
         <div class="update-entry" onclick="this.querySelector('.update-summary')?.classList.toggle('expanded')">
           <div class="update-header">
             <div>
-              <div class="update-date">${u.update_date} &middot; ${u.author_name}</div>
-              <div class="update-title">${u.title}</div>
+              <div class="update-date">${esc(u.update_date)} &middot; ${esc(u.author_name)}</div>
+              <div class="update-title">${esc(u.title)}</div>
             </div>
             <button class="update-delete" onclick="event.stopPropagation(); deleteUpdate(${u.id})">삭제</button>
           </div>
@@ -1285,16 +1291,17 @@
   });
 
   // ─── Card Menu ───
-  let cardMenuId = null;
 
   function openCardMenu(e, id) {
-    cardMenuId = id;
     const p = portfolios.find(x => x.id === id);
     const menu = document.getElementById('card-menu');
     const pinLabel = p?.is_pinned ? 'Unpin' : 'Pin to top';
 
+    const pinBtn = p?.status === 'active'
+      ? `<button class="card-menu-item" onclick="togglePin(${id})">${pinLabel}</button>` : '';
+
     menu.innerHTML = `
-      <button class="card-menu-item" onclick="togglePin(${id})">${pinLabel}</button>
+      ${pinBtn}
       <button class="card-menu-item" onclick="openStatusChange(null, ${id}); closeCardMenu()">Change status</button>
       <button class="card-menu-item danger" onclick="archivePortfolio(${id})">Archive</button>
     `;
@@ -1316,6 +1323,15 @@
   async function togglePin(id) {
     closeCardMenu();
     const p = portfolios.find(x => x.id === id);
+
+    if (!p?.is_pinned) {
+      const pinnedCount = allPortfolios.filter(x => x.is_pinned).length;
+      if (pinnedCount >= 5) {
+        alert('핀은 최대 5개까지 설정할 수 있습니다.');
+        return;
+      }
+    }
+
     const method = p?.is_pinned ? 'DELETE' : 'POST';
     try {
       await fetch(`${API}/api/portfolios/${id}/pin`, { method, headers: headers() });
@@ -1446,9 +1462,9 @@
 
   document.getElementById('up-files').addEventListener('change', async (e) => {
     const newFiles = Array.from(e.target.files);
-    const oversized = newFiles.filter(f => f.size > 25 * 1024 * 1024);
+    const oversized = newFiles.filter(f => f.size > MAX_FILE_SIZE);
     if (oversized.length > 0) alert(`${oversized.map(f => f.name).join(', ')} exceeds 25MB`);
-    const validFiles = newFiles.filter(f => f.size <= 25 * 1024 * 1024);
+    const validFiles = newFiles.filter(f => f.size <= MAX_FILE_SIZE);
     selectedFiles = [...selectedFiles, ...validFiles];
     renderFileList();
 
