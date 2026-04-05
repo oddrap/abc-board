@@ -24,7 +24,7 @@
       --border-light: #EBF0F4;
       --text-1: #1A2233;
       --text-2: #5A6577;
-      --text-3: #94A0B0;
+      --text-3: #6E7A8A;
       --accent: #4A9FD9;
       --accent-dark: #3A85BA;
       --active: #4A9FD9;
@@ -317,12 +317,47 @@
 
     .detail-meta {
       font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--text-3);
+      font-size: 12px;
+      color: var(--text-2);
       letter-spacing: 0.02em;
-      padding-bottom: 20px;
+      padding-bottom: 16px;
+      margin-bottom: 4px;
+    }
+
+    .detail-status-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 0 20px;
       border-bottom: 1px solid var(--border-light);
       margin-bottom: 24px;
+    }
+
+    .detail-status-bar .label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-3);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .status-chip {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      padding: 5px 12px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      background: none;
+      transition: border-color 0.15s;
+    }
+
+    .status-chip.active { color: var(--active); border-color: var(--active); }
+    .status-chip.stale { color: var(--stale); border-color: var(--stale); }
+    .status-chip.dead { color: var(--dead); border-color: var(--dead); }
+    .status-chip.selected {
+      background: var(--border-light);
     }
 
     .section-label {
@@ -761,6 +796,12 @@
   </div>
   <div class="detail-body">
     <div class="detail-meta" id="detail-assignee"></div>
+    <div class="detail-status-bar" id="detail-status-bar">
+      <span class="label">Status</span>
+      <button class="status-chip active" data-status="active">Active</button>
+      <button class="status-chip stale" data-status="stale">Stale</button>
+      <button class="status-chip dead" data-status="dead">Closed</button>
+    </div>
     <div class="section-label">Updates</div>
     <div class="update-list" id="update-list"></div>
     <button class="add-update-btn" id="add-update-btn">+ Add update</button>
@@ -877,6 +918,14 @@
     try {
       const url = currentFilter ? `${API}/api/portfolios?status=${currentFilter}` : `${API}/api/portfolios`;
       const res = await fetch(url, { headers: headers() });
+      if (res.status === 401 || res.status === 403) {
+        document.getElementById('card-list').innerHTML = `
+          <div class="empty-state" style="padding-top:80px">
+            <p style="font-size:14px;color:var(--text-1);margin-bottom:8px">Access Denied</p>
+            <p>This app is restricted to authorized team members.</p>
+          </div>`;
+        return;
+      }
       portfolios = await res.json();
       renderCards();
     } catch (e) { console.error('Load error:', e); }
@@ -939,6 +988,12 @@
     badge.dataset.id = id;
     badge.onclick = () => openStatusChange(null, id);
     document.getElementById('detail-assignee').textContent = p.assignee_name ? `Managed by ${p.assignee_name}` : 'Unassigned';
+
+    // Status bar
+    document.querySelectorAll('.status-chip').forEach(chip => {
+      chip.classList.toggle('selected', chip.dataset.status === p.status);
+    });
+
     document.getElementById('detail-view').classList.add('open');
     if (tg) tg.BackButton.show();
 
@@ -978,6 +1033,26 @@
         </div>`;
     }).join('');
   }
+
+  // Status chips in detail view
+  document.querySelectorAll('.status-chip').forEach(chip => {
+    chip.addEventListener('click', async () => {
+      const newStatus = chip.dataset.status;
+      if (!currentPortfolioId) return;
+      try {
+        await fetch(`${API}/api/portfolios/${currentPortfolioId}`, {
+          method: 'PUT',
+          headers: headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ status: newStatus }),
+        });
+        document.querySelectorAll('.status-chip').forEach(c => c.classList.remove('selected'));
+        chip.classList.add('selected');
+        const badge = document.getElementById('detail-status');
+        badge.textContent = STATUS_LABEL[newStatus];
+        badge.className = `status-tag ${newStatus}`;
+      } catch (e) { console.error(e); }
+    });
+  });
 
   document.getElementById('back-btn').addEventListener('click', closeDetail);
   if (tg) tg.BackButton.onClick(closeDetail);

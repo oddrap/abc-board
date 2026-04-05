@@ -29,9 +29,19 @@ app.use("*", async (c, next) => {
   }
 });
 
-// ─── Telegram initData validation ───
+// ─── Whitelist: authorized Telegram user IDs ───
 
-function validateInitData(initData: string, botToken: string): Record<string, string> | null {
+const ALLOWED_USERS: Record<string, string> = {
+  "38070088": "이준민",    // June
+  "63576124": "박태건",    // Taegun
+  "52860459": "김태윤",    // Taeyun
+  "87243438": "김완섭",    // Wansub
+  "6612424960": "강영구",  // Younggu
+};
+
+// ─── Telegram initData HMAC-SHA256 validation ───
+
+async function validateInitData(initData: string, botToken: string): Promise<Record<string, any> | null> {
   try {
     const params = new URLSearchParams(initData);
     const hash = params.get("hash");
@@ -41,11 +51,22 @@ function validateInitData(initData: string, botToken: string): Record<string, st
     const entries = Array.from(params.entries()).sort(([a], [b]) => a.localeCompare(b));
     const dataCheckString = entries.map(([k, v]) => `${k}=${v}`).join("\n");
 
-    // For now, trust initData in development. Full HMAC validation requires Web Crypto.
-    // TODO: implement HMAC-SHA256 validation with bot token
+    // HMAC-SHA256 validation
+    const encoder = new TextEncoder();
+    const secretKey = await crypto.subtle.importKey(
+      "raw", encoder.encode("WebAppData"), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+    );
+    const secret = await crypto.subtle.sign("HMAC", secretKey, encoder.encode(botToken));
+    const signingKey = await crypto.subtle.importKey(
+      "raw", secret, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+    );
+    const signature = await crypto.subtle.sign("HMAC", signingKey, encoder.encode(dataCheckString));
+    const hexHash = Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, "0")).join("");
+
+    if (hexHash !== hash) return null;
+
     const user = params.get("user");
     if (!user) return null;
-
     return JSON.parse(user);
   } catch {
     return null;
@@ -57,15 +78,24 @@ function validateInitData(initData: string, botToken: string): Record<string, st
 async function authMiddleware(c: any, next: any) {
   const initData = c.req.header("X-Telegram-Init-Data");
 
-  // Allow development without auth
+  // Development mode: no initData = dev access (local only)
   if (!initData) {
-    c.set("user", { id: 0, first_name: "Dev", last_name: "User" });
-    await next();
-    return;
+    if (c.req.url.includes("localhost") || c.req.url.includes("127.0.0.1")) {
+      c.set("user", { id: 0, first_name: "Dev", last_name: "User" });
+      await next();
+      return;
+    }
+    return c.json({ error: "Unauthorized" }, 401);
   }
 
-  const user = validateInitData(initData, c.env.BOT_TOKEN);
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  const user = await validateInitData(initData, c.env.BOT_TOKEN);
+  if (!user) return c.json({ error: "Invalid signature" }, 401);
+
+  // Whitelist check
+  const userId = String(user.id);
+  if (!ALLOWED_USERS[userId]) {
+    return c.json({ error: "Access denied" }, 403);
+  }
 
   c.set("user", user);
   await next();
