@@ -169,6 +169,18 @@
       color: var(--text-3);
     }
 
+    .tab-total {
+      margin-left: auto;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      padding: 10px 0;
+      flex-shrink: 0;
+    }
+
     /* ─── Portfolio List ─── */
 
     .list {
@@ -804,10 +816,10 @@
       <input type="text" id="search-input" placeholder="Search portfolios...">
     </div>
     <div class="tabs" id="tabs">
-      <button class="tab active" data-status="">All <span class="n">0</span></button>
-      <button class="tab" data-status="active">Active <span class="n">0</span></button>
+      <button class="tab active" data-status="active">Active <span class="n">0</span></button>
       <button class="tab" data-status="stale">Stale <span class="n">0</span></button>
       <button class="tab" data-status="dead">Closed <span class="n">0</span></button>
+      <span class="tab-total">Total <span class="n" id="total-count">0</span></span>
     </div>
   </div>
   <div class="list" id="card-list">
@@ -936,7 +948,7 @@
 
   let allPortfolios = [];
   let portfolios = [];
-  let currentFilter = '';
+  let currentFilter = 'active';
   let currentPortfolioId = null;
   let statusChangeId = null;
   let selectedFiles = [];
@@ -944,13 +956,14 @@
   const STATUS_LABEL = { active: 'Active', stale: 'Stale', dead: 'Closed' };
 
   function updateTabCounts() {
-    const counts = { '': allPortfolios.length, active: 0, stale: 0, dead: 0 };
+    const counts = { active: 0, stale: 0, dead: 0 };
     allPortfolios.forEach(p => { if (counts[p.status] !== undefined) counts[p.status]++; });
     document.querySelectorAll('.tab').forEach(tab => {
       const status = tab.dataset.status;
       const n = tab.querySelector('.n');
       if (n) n.textContent = counts[status] ?? 0;
     });
+    document.getElementById('total-count').textContent = allPortfolios.length;
   }
 
   async function loadPortfolios() {
@@ -1204,12 +1217,36 @@
     openModal('modal-update');
   });
 
-  document.getElementById('up-files').addEventListener('change', (e) => {
+  document.getElementById('up-files').addEventListener('change', async (e) => {
     const newFiles = Array.from(e.target.files);
     const oversized = newFiles.filter(f => f.size > 25 * 1024 * 1024);
     if (oversized.length > 0) alert(`${oversized.map(f => f.name).join(', ')} exceeds 25MB`);
-    selectedFiles = [...selectedFiles, ...newFiles.filter(f => f.size <= 25 * 1024 * 1024)];
+    const validFiles = newFiles.filter(f => f.size <= 25 * 1024 * 1024);
+    selectedFiles = [...selectedFiles, ...validFiles];
     renderFileList();
+
+    // Auto-summarize first file if summary is empty
+    const summaryEl = document.getElementById('up-summary');
+    if (validFiles.length > 0 && !summaryEl.value.trim()) {
+      summaryEl.value = 'Summarizing...';
+      summaryEl.disabled = true;
+      try {
+        const formData = new FormData();
+        formData.append('file', validFiles[0]);
+        const res = await fetch(`${API}/api/summarize`, {
+          method: 'POST',
+          headers: { 'X-Telegram-Init-Data': initData },
+          body: formData,
+        });
+        const data = await res.json();
+        summaryEl.value = data.summary || '';
+      } catch (err) {
+        summaryEl.value = '';
+        console.error('Summary error:', err);
+      } finally {
+        summaryEl.disabled = false;
+      }
+    }
   });
 
   function renderFileList() {

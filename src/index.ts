@@ -12,6 +12,7 @@ type Bindings = {
   GDRIVE_ROOT_FOLDER_ID: string;
   STALE_THRESHOLD_DAYS: string;
   MINI_APP_URL: string;
+  GEMINI_API_KEY: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -492,6 +493,59 @@ app.post("/api/files/upload", authMiddleware, async (c) => {
   );
 
   return c.json(uploaded);
+});
+
+// ─── AI Summary ───
+
+app.post("/api/summarize", authMiddleware, async (c) => {
+  if (!c.env.GEMINI_API_KEY) {
+    return c.json({ summary: "" });
+  }
+
+  const formData = await c.req.formData();
+  const file = formData.get("file") as File;
+  if (!file) return c.json({ error: "File required" }, 400);
+  if (file.size > 25 * 1024 * 1024) return c.json({ error: "File too large" }, 400);
+
+  try {
+    const bytes = await file.arrayBuffer();
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(bytes)));
+    const mimeType = file.type || "application/octet-stream";
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${c.env.GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              {
+                inlineData: {
+                  mimeType,
+                  data: base64,
+                },
+              },
+              {
+                text: "이 문서의 핵심 내용을 한국어로 3~5줄로 요약해주세요. 투자/포트폴리오 관점에서 중요한 수치와 인사이트를 중심으로 작성해주세요. 마크다운 없이 일반 텍스트로 작성하세요.",
+              },
+            ],
+          }],
+          generationConfig: {
+            maxOutputTokens: 300,
+            temperature: 0.3,
+          },
+        }),
+      }
+    );
+
+    const data = await res.json<any>();
+    const summary = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    return c.json({ summary: summary.trim() });
+  } catch (e) {
+    console.error("Gemini error:", e);
+    return c.json({ summary: "" });
+  }
 });
 
 // ─── Legacy Posts API (keep existing board working) ───
