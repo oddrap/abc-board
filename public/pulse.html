@@ -260,9 +260,26 @@
       gap: 8px;
     }
 
+    .row-preview {
+      font-size: 11px;
+      color: var(--text-3);
+      margin-top: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 200px;
+    }
+
     .row-right {
       text-align: right;
       flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .row-stats {
+      text-align: right;
     }
 
     .row-count {
@@ -279,6 +296,27 @@
       margin-top: 2px;
     }
 
+    .row-menu-btn {
+      background: none;
+      border: none;
+      font-size: 16px;
+      color: var(--text-3);
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+      letter-spacing: 1px;
+    }
+
+    .row-menu-btn:active { color: var(--text-1); }
+
+    .row-pin {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--accent);
+      letter-spacing: 0.04em;
+      margin-left: 4px;
+    }
+
     .row-stale-mark {
       display: inline-block;
       width: 5px;
@@ -288,6 +326,36 @@
       margin-left: 4px;
       vertical-align: middle;
     }
+
+    /* Card Menu Popup */
+    .card-menu {
+      display: none;
+      position: fixed;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      z-index: 350;
+      min-width: 140px;
+      padding: 4px 0;
+    }
+
+    .card-menu.open { display: block; }
+
+    .card-menu-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 10px 16px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.02em;
+      background: none;
+      border: none;
+      color: var(--text-1);
+      cursor: pointer;
+    }
+
+    .card-menu-item:active { background: var(--canvas); }
+    .card-menu-item.danger { color: #c44; }
 
     /* ─── Detail View ─── */
 
@@ -423,6 +491,26 @@
 
     .update-entry:last-child { border-bottom: none; }
 
+    .update-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .update-delete {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-3);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px 6px;
+      letter-spacing: 0.02em;
+      flex-shrink: 0;
+    }
+
+    .update-delete:hover { color: #c44; }
+
     .update-date {
       font-family: var(--font-mono);
       font-size: 11px;
@@ -446,6 +534,28 @@
     }
 
     .update-summary.expanded { display: block; }
+
+    .summary-section {
+      margin-bottom: 12px;
+    }
+
+    .summary-section:last-child { margin-bottom: 0; }
+
+    .summary-heading {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+
+    .summary-body {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text-2);
+    }
 
     .update-attachments {
       display: flex;
@@ -590,6 +700,24 @@
       -webkit-appearance: none;
       appearance: none;
       cursor: pointer;
+    }
+
+    .summary-retry {
+      display: inline-block;
+      margin-top: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--accent);
+      background: none;
+      border: 1px solid var(--accent);
+      padding: 4px 10px;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+    }
+
+    .summary-retry:active {
+      background: var(--accent);
+      color: white;
     }
 
     .file-upload-area {
@@ -886,6 +1014,7 @@
     <div class="field">
       <label class="field-label">Summary</label>
       <textarea id="up-summary" placeholder="Optional summary"></textarea>
+      <button class="summary-retry" id="summary-retry" style="display:none" onclick="if(lastSummarizedFile) runSummary(lastSummarizedFile)">다시 시도</button>
     </div>
     <div class="field">
       <label class="field-label">Attachments</label>
@@ -911,6 +1040,9 @@
     </div>
   </div>
 </div>
+
+<!-- Card Menu -->
+<div class="card-menu" id="card-menu"></div>
 
 <!-- Status Change Popup -->
 <div class="modal-overlay" id="status-overlay">
@@ -984,6 +1116,25 @@
     } catch (e) { console.error('Load error:', e); }
   }
 
+  function formatSummary(text) {
+    // Split by numbered sections: "1. 매출 현황 요약", "2. 문제 상황 요약", etc.
+    const sections = text.split(/(?=\d+\.\s)/);
+    if (sections.length <= 1) return text.replace(/\n/g, '<br>');
+
+    return sections.filter(s => s.trim()).map(section => {
+      const match = section.match(/^(\d+\.\s*[^\n.]+?(?:요약|현황|계획|상황))\s*([\s\S]*)/);
+      if (match) {
+        return `<div class="summary-section"><div class="summary-heading">${match[1].trim()}</div><div class="summary-body">${match[2].trim()}</div></div>`;
+      }
+      // Fallback: just split at the first sentence boundary
+      const first = section.match(/^(\d+\.\s*\S+)\s*([\s\S]*)/);
+      if (first) {
+        return `<div class="summary-section"><div class="summary-heading">${first[1].trim()}</div><div class="summary-body">${first[2].trim()}</div></div>`;
+      }
+      return `<div class="summary-section"><div class="summary-body">${section.trim()}</div></div>`;
+    }).join('');
+  }
+
   let searchQuery = '';
 
   document.getElementById('search-input').addEventListener('input', (e) => {
@@ -1017,18 +1168,25 @@
         : '\u2014';
 
       const staleMark = p.is_stale_warning ? '<span class="row-stale-mark"></span>' : '';
+      const pinMark = p.is_pinned ? '<span class="row-pin">PIN</span>' : '';
+      const preview = p.latest_update_title
+        ? `<div class="row-preview">${p.latest_update_title}</div>` : '';
 
       return `
-        <div class="row" data-id="${p.id}" onclick="openDetail(${p.id})" oncontextmenu="openStatusChange(event, ${p.id})">
+        <div class="row" data-id="${p.id}" onclick="openDetail(${p.id})">
           <div class="row-indicator ${p.status}"></div>
           ${logoHtml}
           <div class="row-info">
-            <div class="row-name">${p.name}${staleMark}</div>
+            <div class="row-name">${p.name}${pinMark}${staleMark}</div>
             <div class="row-meta">${p.assignee_name || 'Unassigned'}</div>
+            ${preview}
           </div>
           <div class="row-right">
-            <div class="row-count">${p.update_count || 0}</div>
-            <div class="row-date">${lastUpdate}</div>
+            <div class="row-stats">
+              <div class="row-count">${p.update_count || 0}</div>
+              <div class="row-date">${lastUpdate}</div>
+            </div>
+            <button class="row-menu-btn" onclick="event.stopPropagation(); openCardMenu(event, ${p.id})">\u22EF</button>
           </div>
         </div>`;
     }).join('');
@@ -1089,12 +1247,17 @@
       ).join('');
 
       const summaryHtml = u.summary
-        ? `<div class="update-summary">${u.summary}</div>` : '';
+        ? `<div class="update-summary">${formatSummary(u.summary)}</div>` : '';
 
       return `
         <div class="update-entry" onclick="this.querySelector('.update-summary')?.classList.toggle('expanded')">
-          <div class="update-date">${u.update_date} &middot; ${u.author_name}</div>
-          <div class="update-title">${u.title}</div>
+          <div class="update-header">
+            <div>
+              <div class="update-date">${u.update_date} &middot; ${u.author_name}</div>
+              <div class="update-title">${u.title}</div>
+            </div>
+            <button class="update-delete" onclick="event.stopPropagation(); deleteUpdate(${u.id})">삭제</button>
+          </div>
           ${summaryHtml}
           ${attachHtml ? `<div class="update-attachments">${attachHtml}</div>` : ''}
         </div>`;
@@ -1120,6 +1283,67 @@
       } catch (e) { console.error(e); }
     });
   });
+
+  // ─── Card Menu ───
+  let cardMenuId = null;
+
+  function openCardMenu(e, id) {
+    cardMenuId = id;
+    const p = portfolios.find(x => x.id === id);
+    const menu = document.getElementById('card-menu');
+    const pinLabel = p?.is_pinned ? 'Unpin' : 'Pin to top';
+
+    menu.innerHTML = `
+      <button class="card-menu-item" onclick="togglePin(${id})">${pinLabel}</button>
+      <button class="card-menu-item" onclick="openStatusChange(null, ${id}); closeCardMenu()">Change status</button>
+      <button class="card-menu-item danger" onclick="archivePortfolio(${id})">Archive</button>
+    `;
+
+    // Position near the button
+    const rect = e.target.getBoundingClientRect();
+    menu.style.top = rect.bottom + 4 + 'px';
+    menu.style.right = (window.innerWidth - rect.right) + 'px';
+    menu.style.left = 'auto';
+    menu.classList.add('open');
+
+    setTimeout(() => document.addEventListener('click', closeCardMenu, { once: true }), 10);
+  }
+
+  function closeCardMenu() {
+    document.getElementById('card-menu').classList.remove('open');
+  }
+
+  async function togglePin(id) {
+    closeCardMenu();
+    const p = portfolios.find(x => x.id === id);
+    const method = p?.is_pinned ? 'DELETE' : 'POST';
+    try {
+      await fetch(`${API}/api/portfolios/${id}/pin`, { method, headers: headers() });
+      loadPortfolios();
+    } catch (e) { console.error(e); }
+  }
+
+  async function archivePortfolio(id) {
+    closeCardMenu();
+    if (!confirm('이 포트폴리오를 아카이브하시겠습니까?')) return;
+    try {
+      await fetch(`${API}/api/portfolios/${id}`, {
+        method: 'DELETE', headers: headers(),
+      });
+      loadPortfolios();
+    } catch (e) { console.error(e); }
+  }
+
+  async function deleteUpdate(updateId) {
+    if (!confirm('이 업데이트를 삭제하시겠습니까?')) return;
+    try {
+      await fetch(`${API}/api/portfolios/${currentPortfolioId}/updates/${updateId}`, {
+        method: 'DELETE',
+        headers: headers(),
+      });
+      openDetail(currentPortfolioId); // refresh
+    } catch (e) { alert('삭제 실패'); }
+  }
 
   document.getElementById('back-btn').addEventListener('click', closeDetail);
   if (tg) tg.BackButton.onClick(closeDetail);
@@ -1174,7 +1398,10 @@
   document.getElementById('card-list').addEventListener('touchstart', (e) => {
     const row = e.target.closest('.row');
     if (!row) return;
-    pressTimer = setTimeout(() => openStatusChange(null, parseInt(row.dataset.id)), 500);
+    pressTimer = setTimeout(() => {
+      const btn = row.querySelector('.row-menu-btn');
+      if (btn) openCardMenu({ target: btn, stopPropagation: ()=>{} }, parseInt(row.dataset.id));
+    }, 500);
   });
   document.getElementById('card-list').addEventListener('touchend', () => clearTimeout(pressTimer));
   document.getElementById('card-list').addEventListener('touchmove', () => clearTimeout(pressTimer));
@@ -1236,62 +1463,71 @@
       titleEl.value = name;
     }
 
-    // Auto-summarize: call Gemini directly from browser (no Workers proxy)
-    const summaryEl = document.getElementById('up-summary');
+    // Auto-summarize first file
     const fileToSummarize = validFiles[0];
-    if (fileToSummarize && !summaryEl.value.trim()) {
-      summaryEl.value = 'AI 요약 생성 중...';
-      summaryEl.disabled = true;
-      try {
-        const reader = new FileReader();
-        reader.onload = async function() {
-          try {
-            const base64 = reader.result.split(',')[1];
-            const mimeType = fileToSummarize.type || 'application/octet-stream';
-            const GEMINI_KEY = 'AIzaSyBrSw5RHH6YoiM4FN7HBe6S6hbm-qFJTnw';
-
-            console.log('[Summary] Sending to Gemini:', mimeType, Math.round(base64.length/1024)+'KB base64');
-
-            const res = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${GEMINI_KEY}`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  contents: [{ parts: [
-                    { inlineData: { mimeType, data: base64 } },
-                    { text: '이 문서를 분석하여 다음 형식으로 한국어 요약을 작성해주세요. 2500자 이내로 작성하세요.\n\n1. 매출 현황 요약\n(매출, 수익, 성장률 등 핵심 재무 수치 중심)\n\n2. 문제 상황 요약\n(리스크, 손실, 구조적 문제, 주의사항 중심)\n\n3. 향후 계획 요약\n(엑시트 전략, 사업 확장, 투자 계획 등 미래 방향 중심)\n\n마크다운 없이 일반 텍스트로 작성하세요. 번호와 제목은 유지하세요.' }
-                  ]}],
-                  generationConfig: { maxOutputTokens: 2500, temperature: 0.3 }
-                })
-              }
-            );
-
-            const data = await res.json();
-            console.log('[Summary] Gemini response:', JSON.stringify(data).substring(0, 500));
-
-            if (data?.error) {
-              summaryEl.value = '요약 실패: ' + (data.error.message || 'Unknown error');
-            } else {
-              summaryEl.value = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '요약을 생성하지 못했습니다';
-            }
-          } catch (err) {
-            console.error('[Summary] Error:', err);
-            summaryEl.value = '요약 실패: ' + err.message;
-          } finally {
-            summaryEl.disabled = false;
-            summaryEl.focus();
-          }
-        };
-        reader.onerror = () => { summaryEl.value = '파일 읽기 실패'; summaryEl.disabled = false; };
-        reader.readAsDataURL(fileToSummarize);
-      } catch (err) {
-        summaryEl.value = '';
-        summaryEl.disabled = false;
-        console.error('Summary error:', err);
-      }
+    if (fileToSummarize && !document.getElementById('up-summary').value.trim()) {
+      runSummary(fileToSummarize);
     }
+
+    // Reset file input so same file can be re-selected
+    e.target.value = '';
   });
+
+  let lastSummarizedFile = null;
+
+  async function runSummary(file) {
+    lastSummarizedFile = file;
+    const summaryEl = document.getElementById('up-summary');
+    const retryEl = document.getElementById('summary-retry');
+    retryEl.style.display = 'none';
+    summaryEl.value = 'AI 요약 생성 중...';
+    summaryEl.disabled = true;
+
+    try {
+      const base64 = await fileToBase64(file);
+      const mimeType = file.type || 'application/octet-stream';
+      const GEMINI_KEY = 'AIzaSyBrSw5RHH6YoiM4FN7HBe6S6hbm-qFJTnw';
+
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${GEMINI_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [
+              { inlineData: { mimeType, data: base64 } },
+              { text: '이 문서를 분석하여 다음 형식으로 한국어 요약을 작성해주세요. 2500자 이내로 작성하세요.\n\n1. 매출 현황 요약\n(매출, 수익, 성장률 등 핵심 재무 수치 중심)\n\n2. 문제 상황 요약\n(리스크, 손실, 구조적 문제, 주의사항 중심)\n\n3. 향후 계획 요약\n(엑시트 전략, 사업 확장, 투자 계획 등 미래 방향 중심)\n\n마크다운 없이 일반 텍스트로 작성하세요. 번호와 제목은 유지하세요.' }
+            ]}],
+            generationConfig: { maxOutputTokens: 2500, temperature: 0.3 }
+          })
+        }
+      );
+
+      const data = await res.json();
+      if (data?.error) {
+        summaryEl.value = '';
+        summaryEl.placeholder = '요약 실패: ' + (data.error.message || 'Unknown error');
+        retryEl.style.display = 'inline-block';
+      } else {
+        summaryEl.value = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+      }
+    } catch (err) {
+      summaryEl.value = '';
+      summaryEl.placeholder = '요약 실패: ' + err.message;
+      retryEl.style.display = 'inline-block';
+    } finally {
+      summaryEl.disabled = false;
+    }
+  }
+
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
 
   function renderFileList() {
     document.getElementById('file-list').innerHTML = selectedFiles.map((f, i) =>
@@ -1326,12 +1562,21 @@
       document.querySelectorAll('.gdrive-link').forEach(input => {
         if (input.value.trim()) formData.append('gdrive_link', input.value.trim());
       });
-      await fetch(`${API}/api/portfolios/${currentPortfolioId}/updates`, {
+      const res = await fetch(`${API}/api/portfolios/${currentPortfolioId}/updates`, {
         method: 'POST', headers: { 'X-Telegram-Init-Data': initData }, body: formData,
       });
+      const result = await res.json();
+      if (!res.ok) {
+        alert('등록 실패: ' + (result.error || res.status));
+        return;
+      }
+      const attachCount = result.attachments?.length || 0;
       closeModal('modal-update');
       openDetail(currentPortfolioId);
-    } catch (e) { alert('Failed'); }
+      if (selectedFiles.length > 0 && attachCount === 0) {
+        alert('업데이트는 등록되었지만 파일 업로드에 실패했습니다. Google Drive 링크로 직접 첨부해주세요.');
+      }
+    } catch (e) { alert('등록 실패: ' + e.message); }
     finally { btn.disabled = false; }
   });
 

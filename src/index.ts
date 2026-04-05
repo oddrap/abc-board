@@ -255,28 +255,60 @@ async function notifyGroup(env: Bindings, text: string, miniAppPath?: string) {
 
 app.get("/api/portfolios", authMiddleware, async (c) => {
   const status = c.req.query("status");
+  const user = c.get("user") as any;
+  const userId = String(user.id);
   const threshold = parseInt(c.env.STALE_THRESHOLD_DAYS || "60");
 
   let query = `
     SELECT p.*,
       (SELECT COUNT(*) FROM portfolio_updates WHERE portfolio_id = p.id) as update_count,
+      (SELECT title FROM portfolio_updates WHERE portfolio_id = p.id ORDER BY update_date DESC LIMIT 1) as latest_update_title,
+      (SELECT update_date FROM portfolio_updates WHERE portfolio_id = p.id ORDER BY update_date DESC LIMIT 1) as latest_update_date,
+      CASE WHEN up.portfolio_id IS NOT NULL THEN 1 ELSE 0 END as is_pinned,
       CASE
         WHEN p.last_update_at IS NOT NULL
           AND julianday('now') - julianday(p.last_update_at) > ${threshold}
         THEN 1 ELSE 0
       END as is_stale_warning
     FROM portfolios p
+    LEFT JOIN user_pins up ON up.portfolio_id = p.id AND up.telegram_id = ?
     WHERE p.status != 'archived'
   `;
 
   if (status) {
     query += ` AND p.status = ?`;
-    const { results } = await c.env.DB.prepare(query + " ORDER BY p.name ASC").bind(status).all();
+    const { results } = await c.env.DB.prepare(query + " ORDER BY is_pinned DESC, p.name ASC").bind(userId, status).all();
     return c.json(results);
   }
 
-  const { results } = await c.env.DB.prepare(query + " ORDER BY p.name ASC").all();
+  const { results } = await c.env.DB.prepare(query + " ORDER BY is_pinned DESC, p.name ASC").bind(userId).all();
   return c.json(results);
+});
+
+// ─── Pin/Unpin API ───
+
+app.post("/api/portfolios/:id/pin", authMiddleware, async (c) => {
+  const portfolioId = c.req.param("id");
+  const user = c.get("user") as any;
+  const userId = String(user.id);
+
+  await c.env.DB.prepare(
+    "INSERT OR IGNORE INTO user_pins (telegram_id, portfolio_id) VALUES (?, ?)"
+  ).bind(userId, portfolioId).run();
+
+  return c.json({ ok: true, pinned: true });
+});
+
+app.delete("/api/portfolios/:id/pin", authMiddleware, async (c) => {
+  const portfolioId = c.req.param("id");
+  const user = c.get("user") as any;
+  const userId = String(user.id);
+
+  await c.env.DB.prepare(
+    "DELETE FROM user_pins WHERE telegram_id = ? AND portfolio_id = ?"
+  ).bind(userId, portfolioId).run();
+
+  return c.json({ ok: true, pinned: false });
 });
 
 app.post("/api/portfolios", authMiddleware, async (c) => {
@@ -426,9 +458,8 @@ app.post("/api/portfolios/:id/updates", authMiddleware, async (c) => {
 
         attachments.push({ file_name: file.name, gdrive_url: uploaded.url });
       }
-    } catch (e) {
-      console.error("GDrive upload error:", e);
-      // Update is saved, attachments may be partial — acceptable per spec
+    } catch (e: any) {
+      console.error("GDrive upload error:", e?.message || e, JSON.stringify(e));
     }
   }
 
@@ -465,6 +496,29 @@ app.post("/api/portfolios/:id/updates", authMiddleware, async (c) => {
 
 app.delete("/api/portfolios/:id/updates/:updateId", authMiddleware, async (c) => {
   const updateId = c.req.param("updateId");
+
+  // Delete files from Google Drive
+  if (c.env.GDRIVE_SERVICE_ACCOUNT_KEY) {
+    try {
+      const { results: attachments } = await c.env.DB.prepare(
+        "SELECT gdrive_file_id FROM attachments WHERE update_id = ? AND gdrive_file_id != 'manual'"
+      ).bind(updateId).all();
+
+      if (attachments.length > 0) {
+        const accessToken = await getGDriveAccessToken(c.env.GDRIVE_SERVICE_ACCOUNT_KEY);
+        for (const att of attachments) {
+          const fileId = (att as any).gdrive_file_id;
+          await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+        }
+      }
+    } catch (e: any) {
+      console.error("GDrive delete error:", e?.message || e);
+    }
+  }
+
   await c.env.DB.prepare("DELETE FROM attachments WHERE update_id = ?").bind(updateId).run();
   await c.env.DB.prepare("DELETE FROM portfolio_updates WHERE id = ?").bind(updateId).run();
   return c.json({ ok: true });
@@ -551,6 +605,23 @@ app.post("/api/summarize", authMiddleware, async (c) => {
   } catch (e) {
     console.error("Gemini error:", e);
     return c.json({ summary: "" });
+  }
+});
+
+// ─── Debug: test GDrive auth ───
+app.get("/api/debug/gdrive", async (c) => {
+  if (!c.env.GDRIVE_SERVICE_ACCOUNT_KEY) return c.json({ error: "No key configured" });
+  try {
+    const token = await getGDriveAccessToken(c.env.GDRIVE_SERVICE_ACCOUNT_KEY);
+    // Try listing files in the shared drive
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q='${c.env.GDRIVE_ROOT_FOLDER_ID}'+in+parents&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id,name)`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const data = await res.json();
+    return c.json({ auth: "ok", token_prefix: token.substring(0, 20) + "...", drive_response: data });
+  } catch (e: any) {
+    return c.json({ error: e?.message || String(e), stack: e?.stack });
   }
 });
 
