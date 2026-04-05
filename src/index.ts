@@ -33,7 +33,7 @@ app.use("*", async (c, next) => {
 
 const ALLOWED_USERS: Record<string, string> = {
   "38070088": "이준민",    // June
-  "63576124": "박태건",    // Taegun
+  "63576124": "김태근",    // Taegun
   "52860459": "김태윤",    // Taeyun
   "87243438": "김완섭",    // Wansub
   "6612424960": "강영구",  // Younggu

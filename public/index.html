@@ -101,6 +101,32 @@
       color: white;
     }
 
+    /* ─── Search ─── */
+
+    .search-bar {
+      padding: 0 0 12px;
+    }
+
+    .search-bar input {
+      width: 100%;
+      padding: 10px 12px;
+      font-family: var(--font-body);
+      font-size: 13px;
+      color: var(--text-1);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-bar input::placeholder {
+      color: var(--text-3);
+    }
+
+    .search-bar input:focus {
+      border-color: var(--accent);
+    }
+
     /* ─── Tabs ─── */
 
     .tabs {
@@ -138,10 +164,9 @@
     }
 
     .tab .n {
-      font-weight: 500;
-      margin-left: 3px;
-      color: inherit;
-      opacity: 0.6;
+      font-weight: 400;
+      margin-left: 2px;
+      color: var(--text-3);
     }
 
     /* ─── Portfolio List ─── */
@@ -771,15 +796,18 @@
     <div class="header-top">
       <div class="wordmark">
         <img src="/assets/logo.png" alt="ABC Partners">
-        <span class="count">v0.2.0 · <span id="total-count"></span></span>
+        <span class="count">v0.3.0</span>
       </div>
       <button class="add-btn" id="fab-add">+ New</button>
     </div>
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="Search portfolios...">
+    </div>
     <div class="tabs" id="tabs">
-      <button class="tab active" data-status="">All</button>
-      <button class="tab" data-status="active">Active</button>
-      <button class="tab" data-status="stale">Stale</button>
-      <button class="tab" data-status="dead">Closed</button>
+      <button class="tab active" data-status="">All <span class="n">0</span></button>
+      <button class="tab" data-status="active">Active <span class="n">0</span></button>
+      <button class="tab" data-status="stale">Stale <span class="n">0</span></button>
+      <button class="tab" data-status="dead">Closed <span class="n">0</span></button>
     </div>
   </div>
   <div class="list" id="card-list">
@@ -906,6 +934,7 @@
     return { 'X-Telegram-Init-Data': initData, ...extra };
   }
 
+  let allPortfolios = [];
   let portfolios = [];
   let currentFilter = '';
   let currentPortfolioId = null;
@@ -914,11 +943,21 @@
 
   const STATUS_LABEL = { active: 'Active', stale: 'Stale', dead: 'Closed' };
 
+  function updateTabCounts() {
+    const counts = { '': allPortfolios.length, active: 0, stale: 0, dead: 0 };
+    allPortfolios.forEach(p => { if (counts[p.status] !== undefined) counts[p.status]++; });
+    document.querySelectorAll('.tab').forEach(tab => {
+      const status = tab.dataset.status;
+      const n = tab.querySelector('.n');
+      if (n) n.textContent = counts[status] ?? 0;
+    });
+  }
+
   async function loadPortfolios() {
     try {
-      const url = currentFilter ? `${API}/api/portfolios?status=${currentFilter}` : `${API}/api/portfolios`;
-      const res = await fetch(url, { headers: headers() });
-      if (res.status === 401 || res.status === 403) {
+      // Always fetch all for counts
+      const allRes = await fetch(`${API}/api/portfolios`, { headers: headers() });
+      if (allRes.status === 401 || allRes.status === 403) {
         document.getElementById('card-list').innerHTML = `
           <div class="empty-state" style="padding-top:80px">
             <p style="font-size:14px;color:var(--text-1);margin-bottom:8px">Access Denied</p>
@@ -926,14 +965,29 @@
           </div>`;
         return;
       }
-      portfolios = await res.json();
-      renderCards();
+      allPortfolios = await allRes.json();
+      updateTabCounts();
+      applyFilters();
     } catch (e) { console.error('Load error:', e); }
+  }
+
+  let searchQuery = '';
+
+  document.getElementById('search-input').addEventListener('input', (e) => {
+    searchQuery = e.target.value.trim().toLowerCase();
+    applyFilters();
+  });
+
+  function applyFilters() {
+    let filtered = allPortfolios;
+    if (currentFilter) filtered = filtered.filter(p => p.status === currentFilter);
+    if (searchQuery) filtered = filtered.filter(p => p.name.toLowerCase().includes(searchQuery));
+    portfolios = filtered;
+    renderCards();
   }
 
   function renderCards() {
     const list = document.getElementById('card-list');
-    document.getElementById('total-count').textContent = portfolios.length;
 
     if (portfolios.length === 0) {
       list.innerHTML = '<div class="empty-state"><p>No portfolios found</p></div>';
@@ -973,7 +1027,7 @@
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     currentFilter = tab.dataset.status;
-    loadPortfolios();
+    applyFilters();
   });
 
   async function openDetail(id) {
