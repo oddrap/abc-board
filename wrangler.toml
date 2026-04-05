@@ -10,3 +10,10 @@ bucket = "./public"
 binding = "DB"
 database_name = "abc-board-db"
 database_id = "9d48ddcd-4035-4e02-894f-9fbd0d998363"
+
+[vars]
+STALE_THRESHOLD_DAYS = "60"
+
+# Cron trigger for weekly stale portfolio reminder (Monday 9AM KST)
+# [triggers]
+# crons = ["0 0 * * 1"]

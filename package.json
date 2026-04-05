@@ -6,7 +6,11 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "db:init": "wrangler d1 execute abc-board-db --local --file=./schema.sql",
-    "db:init:remote": "wrangler d1 execute abc-board-db --remote --file=./schema.sql"
+    "db:init:remote": "wrangler d1 execute abc-board-db --remote --file=./schema.sql",
+    "db:pulse": "wrangler d1 execute abc-board-db --local --file=./schema-pulse.sql",
+    "db:pulse:remote": "wrangler d1 execute abc-board-db --remote --file=./schema-pulse.sql",
+    "db:seed": "wrangler d1 execute abc-board-db --local --file=./seed-portfolios.sql",
+    "db:seed:remote": "wrangler d1 execute abc-board-db --remote --file=./seed-portfolios.sql"
   },
   "dependencies": {
     "hono": "^4.12.9",

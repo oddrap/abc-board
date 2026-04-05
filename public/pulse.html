@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ABC Pulse</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg: #1a1a2e;
+      --surface: #16213e;
+      --surface2: #0f3460;
+      --accent: #e94560;
+      --text: #eee;
+      --text-dim: #8892b0;
+      --green: #64ffda;
+      --yellow: #ffd93d;
+      --red: #ff6b6b;
+      --blue: #6c9bff;
+      --radius: 12px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 80px;
+    }
+
+    /* ─── Header ─── */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--bg);
+      padding: 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header .count {
+      font-size: 13px;
+      color: var(--text-dim);
+      font-weight: 400;
+    }
+
+    /* ─── Tab Filter ─── */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      padding: 8px 16px 12px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .tabs::-webkit-scrollbar { display: none; }
+
+    .tab {
+      flex-shrink: 0;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: transparent;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab.active {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+
+    .tab .badge {
+      margin-left: 4px;
+      font-size: 11px;
+      opacity: 0.8;
+    }
+
+    /* ─── Portfolio Cards ─── */
+    .card-list {
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: transform 0.15s, background 0.15s;
+      position: relative;
+    }
+
+    .card:active { transform: scale(0.98); background: var(--surface2); }
+
+    .card-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      object-fit: contain;
+      background: white;
+      padding: 4px;
+      flex-shrink: 0;
+    }
+
+    .card-logo.placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 700;
+      background: var(--surface2);
+      color: var(--accent);
+    }
+
+    .card-info { flex: 1; min-width: 0; }
+
+    .card-name {
+      font-size: 15px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-meta {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 3px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .status-dot.active { background: var(--green); }
+    .status-dot.stale { background: var(--yellow); }
+    .status-dot.dead { background: var(--red); }
+    .status-dot.scraping { background: var(--blue); }
+
+    .stale-warning {
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      font-size: 11px;
+      color: var(--yellow);
+    }
+
+    .card-updates {
+      font-size: 12px;
+      color: var(--text-dim);
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* ─── Detail View ─── */
+    .detail-view {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--bg);
+      z-index: 200;
+      overflow-y: auto;
+    }
+
+    .detail-view.open { display: block; }
+
+    .detail-header {
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      z-index: 10;
+    }
+
+    .detail-header .back-btn {
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px;
+      background: none;
+      border: none;
+      color: var(--text);
+    }
+
+    .detail-header .name {
+      font-size: 18px;
+      font-weight: 700;
+      flex: 1;
+    }
+
+    .detail-header .status-badge {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .status-badge.active { background: rgba(100,255,218,0.15); color: var(--green); }
+    .status-badge.stale { background: rgba(255,217,61,0.15); color: var(--yellow); }
+    .status-badge.dead { background: rgba(255,107,107,0.15); color: var(--red); }
+    .status-badge.scraping { background: rgba(108,155,255,0.15); color: var(--blue); }
+
+    .detail-body { padding: 16px; }
+
+    .detail-assignee {
+      font-size: 13px;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+    }
+
+    /* ─── Update Cards ─── */
+    .update-list { display: flex; flex-direction: column; gap: 12px; }
+
+    .update-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 14px;
+      border-left: 3px solid var(--accent);
+    }
+
+    .update-card .date {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .update-card .title {
+      font-size: 14px;
+      font-weight: 600;
+      margin: 4px 0;
+    }
+
+    .update-card .summary {
+      font-size: 13px;
+      color: var(--text-dim);
+      line-height: 1.5;
+      display: none;
+    }
+
+    .update-card .summary.expanded { display: block; margin-top: 8px; }
+
+    .update-card .attachments {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .attachment-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      background: var(--surface2);
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--blue);
+      text-decoration: none;
+    }
+
+    .attachment-chip:hover { opacity: 0.8; }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-dim);
+    }
+
+    .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; }
+
+    /* ─── FAB / Add Buttons ─── */
+    .fab {
+      position: fixed;
+      bottom: 24px;
+      right: 20px;
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      background: var(--accent);
+      color: white;
+      font-size: 28px;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 20px rgba(233,69,96,0.4);
+      z-index: 50;
+      transition: transform 0.15s;
+    }
+
+    .fab:active { transform: scale(0.9); }
+
+    .add-update-btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: var(--radius);
+      background: var(--accent);
+      color: white;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      margin-top: 16px;
+    }
+
+    /* ─── Modal / Forms ─── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 300;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border-radius: 20px 20px 0 0;
+      width: 100%;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 24px 20px;
+      animation: slideUp 0.3s ease;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    .modal h2 {
+      font-size: 18px;
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      font-size: 13px;
+      color: var(--text-dim);
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+    }
+
+    .form-group textarea { min-height: 80px; resize: vertical; }
+
+    .form-group input:focus,
+    .form-group textarea:focus {
+      border-color: var(--accent);
+    }
+
+    .file-input-wrapper {
+      display: flex;
+      gap: 8px;
+    }
+
+    .file-input-wrapper label.file-btn {
+      padding: 10px 16px;
+      background: var(--surface2);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text);
+      flex-shrink: 0;
+    }
+
+    .file-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .file-tag {
+      padding: 4px 10px;
+      background: var(--surface2);
+      border-radius: 6px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .file-tag .remove {
+      cursor: pointer;
+      color: var(--red);
+      font-weight: bold;
+    }
+
+    .link-inputs {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .link-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .link-row input { flex: 1; }
+
+    .link-row .remove-link {
+      padding: 10px;
+      background: var(--surface2);
+      border: none;
+      color: var(--red);
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .add-link-btn {
+      padding: 8px 12px;
+      background: transparent;
+      border: 1px dashed rgba(255,255,255,0.2);
+      border-radius: 8px;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .btn-row button {
+      flex: 1;
+      padding: 14px;
+      border-radius: var(--radius);
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-cancel {
+      background: var(--surface2);
+      color: var(--text);
+    }
+
+    .btn-submit {
+      background: var(--accent);
+      color: white;
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ─── Status Change Popup ─── */
+    .status-popup {
+      display: none;
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 20px;
+      z-index: 400;
+      min-width: 260px;
+    }
+
+    .status-popup.open { display: block; }
+
+    .status-popup h3 {
+      font-size: 16px;
+      margin-bottom: 14px;
+      text-align: center;
+    }
+
+    .status-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .status-option:hover { background: var(--surface2); }
+
+    .status-option.current { background: var(--surface2); }
+
+    .status-option .label { font-size: 14px; }
+
+    /* ─── Loading ─── */
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255,255,255,0.1);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 60vh;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══ Main: Portfolio List ═══ -->
+<div id="main-view">
+  <div class="header">
+    <h1>📊 ABC Pulse <span class="count" id="total-count"></span></h1>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-status="">전체</button>
+    <button class="tab" data-status="active">🟢 관리중</button>
+    <button class="tab" data-status="stale">🟡 확인필요</button>
+    <button class="tab" data-status="dead">🔴 중단</button>
+    <button class="tab" data-status="scraping">📋 스크래핑</button>
+  </div>
+
+  <div class="card-list" id="card-list">
+    <div class="loading-screen"><div class="spinner"></div></div>
+  </div>
+
+  <button class="fab" id="fab-add" title="새 포트폴리오">+</button>
+</div>
+
+<!-- ═══ Detail View ═══ -->
+<div class="detail-view" id="detail-view">
+  <div class="detail-header">
+    <button class="back-btn" id="back-btn">←</button>
+    <span class="name" id="detail-name"></span>
+    <span class="status-badge" id="detail-status" data-id=""></span>
+  </div>
+  <div class="detail-body">
+    <div class="detail-assignee" id="detail-assignee"></div>
+    <div class="update-list" id="update-list"></div>
+    <button class="add-update-btn" id="add-update-btn">+ 업데이트 추가</button>
+  </div>
+</div>
+
+<!-- ═══ Add Portfolio Modal ═══ -->
+<div class="modal-overlay" id="modal-portfolio">
+  <div class="modal">
+    <h2>새 포트폴리오 등록</h2>
+    <div class="form-group">
+      <label>회사/펀드명 *</label>
+      <input type="text" id="pf-name" placeholder="회사명 입력">
+    </div>
+    <div class="form-group">
+      <label>상태</label>
+      <select id="pf-status">
+        <option value="active">🟢 관리중</option>
+        <option value="stale">🟡 확인필요</option>
+        <option value="dead">🔴 중단</option>
+        <option value="scraping">📋 스크래핑</option>
+      </select>
+    </div>
+    <div class="btn-row">
+      <button class="btn-cancel" onclick="closeModal('modal-portfolio')">취소</button>
+      <button class="btn-submit" id="btn-create-pf">등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Add Update Modal ═══ -->
+<div class="modal-overlay" id="modal-update">
+  <div class="modal">
+    <h2>업데이트 추가</h2>
+    <div class="form-group">
+      <label>날짜</label>
+      <input type="date" id="up-date">
+    </div>
+    <div class="form-group">
+      <label>제목 *</label>
+      <input type="text" id="up-title" placeholder="업데이트 제목">
+    </div>
+    <div class="form-group">
+      <label>요약</label>
+      <textarea id="up-summary" placeholder="내용 요약 (선택)"></textarea>
+    </div>
+    <div class="form-group">
+      <label>파일 첨부</label>
+      <div class="file-input-wrapper">
+        <label class="file-btn">📎 파일 선택
+          <input type="file" id="up-files" multiple style="display:none">
+        </label>
+      </div>
+      <div class="file-list" id="file-list"></div>
+    </div>
+    <div class="form-group">
+      <label>Google Drive 링크</label>
+      <div class="link-inputs" id="link-inputs">
+        <div class="link-row">
+          <input type="url" placeholder="https://drive.google.com/..." class="gdrive-link">
+        </div>
+      </div>
+      <button class="add-link-btn" id="add-link-btn">+ 링크 추가</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn-cancel" onclick="closeModal('modal-update')">취소</button>
+      <button class="btn-submit" id="btn-create-update">등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Status Change Popup ═══ -->
+<div class="modal-overlay" id="status-overlay">
+  <div class="status-popup" id="status-popup">
+    <h3>상태 변경</h3>
+    <div class="status-option" data-status="active">
+      <span class="status-dot active"></span>
+      <span class="label">관리중</span>
+    </div>
+    <div class="status-option" data-status="stale">
+      <span class="status-dot stale"></span>
+      <span class="label">확인필요</span>
+    </div>
+    <div class="status-option" data-status="dead">
+      <span class="status-dot dead"></span>
+      <span class="label">중단</span>
+    </div>
+    <div class="status-option" data-status="scraping">
+      <span class="status-dot scraping"></span>
+      <span class="label">스크래핑</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ─── Telegram WebApp ───
+  const tg = window.Telegram?.WebApp;
+  if (tg) {
+    tg.ready();
+    tg.expand();
+    tg.setHeaderColor('#1a1a2e');
+    tg.setBackgroundColor('#1a1a2e');
+  }
+
+  const API = '';
+  const initData = tg?.initData || '';
+
+  function headers(extra = {}) {
+    return {
+      'X-Telegram-Init-Data': initData,
+      ...extra,
+    };
+  }
+
+  // ─── State ───
+  let portfolios = [];
+  let currentFilter = '';
+  let currentPortfolioId = null;
+  let statusChangeId = null;
+  let selectedFiles = [];
+
+  // ─── Fetch Portfolios ───
+  async function loadPortfolios() {
+    try {
+      const url = currentFilter ? `${API}/api/portfolios?status=${currentFilter}` : `${API}/api/portfolios`;
+      const res = await fetch(url, { headers: headers() });
+      portfolios = await res.json();
+      renderCards();
+    } catch (e) {
+      console.error('Load error:', e);
+    }
+  }
+
+  // ─── Render Cards ───
+  function renderCards() {
+    const list = document.getElementById('card-list');
+    document.getElementById('total-count').textContent = `${portfolios.length}개`;
+
+    if (portfolios.length === 0) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">📂</div>
+          <p>포트폴리오가 없습니다</p>
+        </div>`;
+      return;
+    }
+
+    list.innerHTML = portfolios.map(p => {
+      const logoHtml = p.logo_url
+        ? `<img class="card-logo" src="${p.logo_url}" alt="${p.name}" onerror="this.outerHTML='<div class=\\'card-logo placeholder\\'>${p.name[0]}</div>'">`
+        : `<div class="card-logo placeholder">${p.name[0]}</div>`;
+
+      const lastUpdate = p.last_update_at
+        ? new Date(p.last_update_at).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
+        : '미갱신';
+
+      const warning = p.is_stale_warning ? '<span class="stale-warning">⚠️ 미갱신</span>' : '';
+
+      return `
+        <div class="card" data-id="${p.id}" onclick="openDetail(${p.id})" oncontextmenu="openStatusChange(event, ${p.id})">
+          ${logoHtml}
+          <div class="card-info">
+            <div class="card-name">${p.name}</div>
+            <div class="card-meta">
+              <span class="status-dot ${p.status}"></span>
+              ${p.assignee_name || '미배정'}
+            </div>
+          </div>
+          <div class="card-updates">
+            <div>${p.update_count || 0}건</div>
+            <div style="font-size:11px">${lastUpdate}</div>
+          </div>
+          ${warning}
+        </div>`;
+    }).join('');
+  }
+
+  // ─── Tab Filter ───
+  document.getElementById('tabs').addEventListener('click', (e) => {
+    const tab = e.target.closest('.tab');
+    if (!tab) return;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentFilter = tab.dataset.status;
+    loadPortfolios();
+  });
+
+  // ─── Open Detail ───
+  async function openDetail(id) {
+    currentPortfolioId = id;
+    const p = portfolios.find(x => x.id === id);
+    if (!p) return;
+
+    document.getElementById('detail-name').textContent = p.name;
+    const badge = document.getElementById('detail-status');
+    badge.textContent = { active: '관리중', stale: '확인필요', dead: '중단', scraping: '스크래핑' }[p.status];
+    badge.className = `status-badge ${p.status}`;
+    badge.dataset.id = id;
+    badge.onclick = () => openStatusChange(null, id);
+
+    document.getElementById('detail-assignee').textContent = p.assignee_name ? `담당: ${p.assignee_name}` : '담당자 미배정';
+
+    document.getElementById('detail-view').classList.add('open');
+    if (tg) tg.BackButton.show();
+
+    // Load updates
+    const updateList = document.getElementById('update-list');
+    updateList.innerHTML = '<div style="text-align:center;padding:20px"><div class="spinner"></div></div>';
+
+    try {
+      const res = await fetch(`${API}/api/portfolios/${id}/updates`, { headers: headers() });
+      const updates = await res.json();
+      renderUpdates(updates);
+    } catch (e) {
+      updateList.innerHTML = '<div class="empty-state"><p>업데이트를 불러올 수 없습니다</p></div>';
+    }
+  }
+
+  function renderUpdates(updates) {
+    const list = document.getElementById('update-list');
+
+    if (updates.length === 0) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">📝</div>
+          <p>아직 업데이트가 없습니다</p>
+        </div>`;
+      return;
+    }
+
+    list.innerHTML = updates.map(u => {
+      const attachHtml = (u.attachments || []).map(a =>
+        `<a class="attachment-chip" href="${a.gdrive_url}" target="_blank">📎 ${a.file_name}</a>`
+      ).join('');
+
+      const summaryHtml = u.summary
+        ? `<div class="summary" onclick="this.classList.toggle('expanded')">${u.summary}</div>`
+        : '';
+
+      return `
+        <div class="update-card" onclick="this.querySelector('.summary')?.classList.toggle('expanded')">
+          <div class="date">${u.update_date} · ${u.author_name}</div>
+          <div class="title">${u.title}</div>
+          ${summaryHtml}
+          ${attachHtml ? `<div class="attachments">${attachHtml}</div>` : ''}
+        </div>`;
+    }).join('');
+  }
+
+  // ─── Back Button ───
+  document.getElementById('back-btn').addEventListener('click', closeDetail);
+  if (tg) tg.BackButton.onClick(closeDetail);
+
+  function closeDetail() {
+    document.getElementById('detail-view').classList.remove('open');
+    if (tg) tg.BackButton.hide();
+    currentPortfolioId = null;
+    loadPortfolios(); // Refresh in case of changes
+  }
+
+  // ─── Status Change ───
+  function openStatusChange(e, id) {
+    if (e) e.preventDefault();
+    statusChangeId = id;
+
+    const p = portfolios.find(x => x.id === id);
+    document.querySelectorAll('.status-option').forEach(opt => {
+      opt.classList.toggle('current', opt.dataset.status === p?.status);
+    });
+
+    document.getElementById('status-overlay').classList.add('open');
+    document.getElementById('status-popup').classList.add('open');
+  }
+
+  document.getElementById('status-overlay').addEventListener('click', (e) => {
+    if (e.target.id === 'status-overlay') {
+      document.getElementById('status-overlay').classList.remove('open');
+      document.getElementById('status-popup').classList.remove('open');
+    }
+  });
+
+  document.querySelectorAll('.status-option').forEach(opt => {
+    opt.addEventListener('click', async () => {
+      const newStatus = opt.dataset.status;
+      try {
+        await fetch(`${API}/api/portfolios/${statusChangeId}`, {
+          method: 'PUT',
+          headers: headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ status: newStatus }),
+        });
+        document.getElementById('status-overlay').classList.remove('open');
+        document.getElementById('status-popup').classList.remove('open');
+        loadPortfolios();
+
+        // Update detail view if open
+        if (currentPortfolioId === statusChangeId) {
+          const badge = document.getElementById('detail-status');
+          badge.textContent = { active: '관리중', stale: '확인필요', dead: '중단', scraping: '스크래핑' }[newStatus];
+          badge.className = `status-badge ${newStatus}`;
+        }
+      } catch (e) {
+        alert('상태 변경 실패');
+      }
+    });
+  });
+
+  // ─── Long press for mobile ───
+  let pressTimer;
+  document.getElementById('card-list').addEventListener('touchstart', (e) => {
+    const card = e.target.closest('.card');
+    if (!card) return;
+    pressTimer = setTimeout(() => {
+      openStatusChange(null, parseInt(card.dataset.id));
+    }, 500);
+  });
+  document.getElementById('card-list').addEventListener('touchend', () => clearTimeout(pressTimer));
+  document.getElementById('card-list').addEventListener('touchmove', () => clearTimeout(pressTimer));
+
+  // ─── Modals ───
+  function openModal(id) {
+    document.getElementById(id).classList.add('open');
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+  }
+
+  // Close modal on overlay click
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.classList.remove('open');
+    });
+  });
+
+  // ─── Create Portfolio ───
+  document.getElementById('fab-add').addEventListener('click', () => openModal('modal-portfolio'));
+
+  document.getElementById('btn-create-pf').addEventListener('click', async () => {
+    const name = document.getElementById('pf-name').value.trim();
+    const status = document.getElementById('pf-status').value;
+
+    if (!name) { alert('회사명을 입력하세요'); return; }
+
+    const btn = document.getElementById('btn-create-pf');
+    btn.disabled = true;
+    btn.textContent = '등록 중...';
+
+    try {
+      await fetch(`${API}/api/portfolios`, {
+        method: 'POST',
+        headers: headers({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ name, status }),
+      });
+      document.getElementById('pf-name').value = '';
+      closeModal('modal-portfolio');
+      loadPortfolios();
+    } catch (e) {
+      alert('등록 실패');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '등록';
+    }
+  });
+
+  // ─── Create Update ───
+  document.getElementById('add-update-btn').addEventListener('click', () => {
+    document.getElementById('up-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('up-title').value = '';
+    document.getElementById('up-summary').value = '';
+    document.getElementById('up-files').value = '';
+    selectedFiles = [];
+    renderFileList();
+    document.getElementById('link-inputs').innerHTML = '<div class="link-row"><input type="url" placeholder="https://drive.google.com/..." class="gdrive-link"></div>';
+    openModal('modal-update');
+  });
+
+  // File selection
+  document.getElementById('up-files').addEventListener('change', (e) => {
+    const newFiles = Array.from(e.target.files);
+    const oversized = newFiles.filter(f => f.size > 25 * 1024 * 1024);
+    if (oversized.length > 0) {
+      alert(`${oversized.map(f => f.name).join(', ')} — 25MB 초과`);
+    }
+    selectedFiles = [...selectedFiles, ...newFiles.filter(f => f.size <= 25 * 1024 * 1024)];
+    renderFileList();
+  });
+
+  function renderFileList() {
+    const list = document.getElementById('file-list');
+    list.innerHTML = selectedFiles.map((f, i) =>
+      `<span class="file-tag">📎 ${f.name} <span class="remove" onclick="removeFile(${i})">×</span></span>`
+    ).join('');
+  }
+
+  function removeFile(i) {
+    selectedFiles.splice(i, 1);
+    renderFileList();
+  }
+
+  // Link inputs
+  document.getElementById('add-link-btn').addEventListener('click', () => {
+    const container = document.getElementById('link-inputs');
+    const row = document.createElement('div');
+    row.className = 'link-row';
+    row.innerHTML = `
+      <input type="url" placeholder="https://drive.google.com/..." class="gdrive-link">
+      <button class="remove-link" onclick="this.parentElement.remove()">×</button>`;
+    container.appendChild(row);
+  });
+
+  document.getElementById('btn-create-update').addEventListener('click', async () => {
+    const title = document.getElementById('up-title').value.trim();
+    const date = document.getElementById('up-date').value;
+    const summary = document.getElementById('up-summary').value.trim();
+
+    if (!title) { alert('제목을 입력하세요'); return; }
+
+    const btn = document.getElementById('btn-create-update');
+    btn.disabled = true;
+    btn.textContent = '등록 중...';
+
+    try {
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('update_date', date);
+      if (summary) formData.append('summary', summary);
+
+      selectedFiles.forEach(f => formData.append('files', f));
+
+      const links = document.querySelectorAll('.gdrive-link');
+      links.forEach(input => {
+        if (input.value.trim()) formData.append('gdrive_link', input.value.trim());
+      });
+
+      await fetch(`${API}/api/portfolios/${currentPortfolioId}/updates`, {
+        method: 'POST',
+        headers: { 'X-Telegram-Init-Data': initData },
+        body: formData,
+      });
+
+      closeModal('modal-update');
+      openDetail(currentPortfolioId); // Refresh
+    } catch (e) {
+      alert('등록 실패');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '등록';
+    }
+  });
+
+  // ─── Init ───
+  loadPortfolios();
+</script>
+</body>
+</html>
