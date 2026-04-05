@@ -10,27 +10,23 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Manrope:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     /* ═══════════════════════════════════════
-       ABC Pulse — Dieter Rams Edition
-       "Good design is as little design as possible."
-
-       Palette derived from Braun SK 4:
-       warm white surface, precise typography,
-       function dictates every pixel.
+       ABC Pulse — CI-aligned Rams Edition
+       Palette anchored to ABC Partners CI blue.
        ═══════════════════════════════════════ */
 
     :root {
-      --canvas: #F5F2EC;
+      --canvas: #F5F7FA;
       --surface: #FFFFFF;
-      --border: #E5E0D8;
-      --border-light: #EDEAE4;
-      --text-1: #1C1C1C;
-      --text-2: #6B6560;
-      --text-3: #A09A94;
-      --accent: #C85C2E;
-      --active: #3D7B5F;
-      --stale: #B8963E;
-      --dead: #A09A94;
-      --scraping: #5B7FA5;
+      --border: #E0E5EB;
+      --border-light: #EBF0F4;
+      --text-1: #1A2233;
+      --text-2: #5A6577;
+      --text-3: #94A0B0;
+      --accent: #4A9FD9;
+      --accent-dark: #3A85BA;
+      --active: #4A9FD9;
+      --stale: #C9963A;
+      --dead: #94A0B0;
       --font-display: 'Fraunces', Georgia, serif;
       --font-body: 'Manrope', system-ui, sans-serif;
       --font-mono: 'JetBrains Mono', monospace;
@@ -65,20 +61,21 @@
     }
 
     .wordmark {
-      font-family: var(--font-display);
-      font-size: 22px;
-      font-weight: 400;
-      font-style: normal;
-      letter-spacing: -0.02em;
-      color: var(--text-1);
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
-    .wordmark span {
+    .wordmark img {
+      height: 28px;
+      width: auto;
+    }
+
+    .wordmark .count {
       font-weight: 300;
       color: var(--text-3);
       font-size: 13px;
       font-family: var(--font-mono);
-      margin-left: 8px;
       letter-spacing: 0;
     }
 
@@ -97,6 +94,7 @@
 
     .add-btn:active {
       background: var(--accent);
+      border-color: var(--accent);
       color: white;
     }
 
@@ -176,8 +174,7 @@
     .row-indicator.active { background: var(--active); }
     .row-indicator.stale { background: var(--stale); }
     .row-indicator.dead { background: var(--dead); }
-    .row-indicator.scraping { background: var(--scraping); }
-
+    
     .row-logo {
       width: 36px;
       height: 36px;
@@ -310,8 +307,7 @@
     .status-tag.active { color: var(--active); border-color: var(--active); }
     .status-tag.stale { color: var(--stale); border-color: var(--stale); }
     .status-tag.dead { color: var(--dead); border-color: var(--dead); }
-    .status-tag.scraping { color: var(--scraping); border-color: var(--scraping); }
-
+    
     .detail-body {
       padding: 24px 20px 100px;
     }
@@ -646,8 +642,8 @@
     }
 
     .btn-submit:active:not(:disabled) {
-      background: var(--accent);
-      border-color: var(--accent);
+      background: var(--accent-dark);
+      border-color: var(--accent-dark);
     }
 
     /* ─── Status Popup ─── */
@@ -700,8 +696,7 @@
     .status-indicator.active { background: var(--active); }
     .status-indicator.stale { background: var(--stale); }
     .status-indicator.dead { background: var(--dead); }
-    .status-indicator.scraping { background: var(--scraping); }
-
+    
     .status-option .label {
       font-size: 13px;
       font-weight: 400;
@@ -736,7 +731,10 @@
 <div id="main-view">
   <div class="header">
     <div class="header-top">
-      <h1 class="wordmark">Pulse<span id="total-count"></span></h1>
+      <div class="wordmark">
+        <img src="/assets/logo.png" alt="ABC Partners">
+        <span class="count">v0.2.0 · <span id="total-count"></span></span>
+      </div>
       <button class="add-btn" id="fab-add">+ New</button>
     </div>
     <div class="tabs" id="tabs">
@@ -744,7 +742,6 @@
       <button class="tab" data-status="active">Active</button>
       <button class="tab" data-status="stale">Stale</button>
       <button class="tab" data-status="dead">Closed</button>
-      <button class="tab" data-status="scraping">Scraping</button>
     </div>
   </div>
   <div class="list" id="card-list">
@@ -781,7 +778,6 @@
         <option value="active">Active</option>
         <option value="stale">Stale</option>
         <option value="dead">Closed</option>
-        <option value="scraping">Scraping</option>
       </select>
     </div>
     <div class="btn-row">
@@ -848,10 +844,6 @@
       <span class="status-indicator dead"></span>
       <span class="label">Closed</span>
     </div>
-    <div class="status-option" data-status="scraping">
-      <span class="status-indicator scraping"></span>
-      <span class="label">Scraping</span>
-    </div>
   </div>
 </div>
 
@@ -860,8 +852,8 @@
   if (tg) {
     tg.ready();
     tg.expand();
-    tg.setHeaderColor('#F5F2EC');
-    tg.setBackgroundColor('#F5F2EC');
+    tg.setHeaderColor('#F5F7FA');
+    tg.setBackgroundColor('#F5F7FA');
   }
 
   const API = '';
@@ -876,7 +868,7 @@
   let statusChangeId = null;
   let selectedFiles = [];
 
-  const STATUS_LABEL = { active: 'Active', stale: 'Stale', dead: 'Closed', scraping: 'Scraping' };
+  const STATUS_LABEL = { active: 'Active', stale: 'Stale', dead: 'Closed' };
 
   async function loadPortfolios() {
     try {

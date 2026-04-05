@@ -1,1301 +1,1128 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>ABC Partners</title>
-  <link rel="icon" href="/favicon.ico">
+  <title>ABC Pulse</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Manrope:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    /* ═══════════════════════════════════════
+       ABC Pulse — CI-aligned Rams Edition
+       Palette anchored to ABC Partners CI blue.
+       ═══════════════════════════════════════ */
+
     :root {
-      --abc-blue: #4A9FD9;
-      --abc-blue-dark: #3A8BC5;
-      --abc-blue-light: #5BB3EC;
-      --bg: #0B0E13;
-      --bg-card: #12161D;
-      --bg-card-hover: #181D27;
-      --bg-elevated: #1A1F2B;
-      --border: #1E2433;
-      --border-light: #2A3142;
-      --text: #E8ECF1;
-      --text-secondary: #8B95A8;
-      --text-muted: #5A6478;
-      --danger: #E5484D;
-      --success: #30A46C;
-      --radius: 14px;
-      --radius-sm: 8px;
-      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --canvas: #F5F7FA;
+      --surface: #FFFFFF;
+      --border: #E0E5EB;
+      --border-light: #EBF0F4;
+      --text-1: #1A2233;
+      --text-2: #5A6577;
+      --text-3: #94A0B0;
+      --accent: #4A9FD9;
+      --accent-dark: #3A85BA;
+      --active: #4A9FD9;
+      --stale: #C9963A;
+      --dead: #94A0B0;
+      --font-display: 'Fraunces', Georgia, serif;
+      --font-body: 'Manrope', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: 'Outfit', 'Noto Sans KR', -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--text);
+      font-family: var(--font-body);
+      background: var(--canvas);
+      color: var(--text-1);
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
-      overflow-x: hidden;
-    }
-
-    /* ─── App Shell ─── */
-    .app {
-      max-width: 100%;
-      min-height: 100vh;
-      padding-bottom: calc(72px + var(--safe-bottom));
+      -moz-osx-font-smoothing: grayscale;
     }
 
     /* ─── Header ─── */
+
     .header {
       position: sticky;
       top: 0;
       z-index: 100;
-      background: rgba(11, 14, 19, 0.85);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--border);
-      padding: 14px 20px;
+      background: var(--canvas);
+      padding: 20px 20px 0;
     }
 
-    .header-inner {
+    .header-top {
       display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .header-logo {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      object-fit: cover;
-    }
-
-    .header-title {
-      font-weight: 600;
-      font-size: 17px;
-      letter-spacing: -0.3px;
-    }
-
-    .header-title span {
-      color: var(--abc-blue);
-    }
-
-    /* ─── Bottom Nav ─── */
-    .nav {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      z-index: 200;
-      background: rgba(11, 14, 19, 0.92);
-      backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
-      border-top: 1px solid var(--border);
-      padding-bottom: var(--safe-bottom);
-    }
-
-    .nav-inner {
-      display: flex;
-      justify-content: space-around;
-      padding: 8px 0 6px;
-    }
-
-    .nav-btn {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 3px;
-      background: none;
-      border: none;
-      color: var(--text-muted);
-      font-family: inherit;
-      font-size: 10px;
-      font-weight: 500;
-      padding: 6px 16px;
-      cursor: pointer;
-      transition: color 0.2s;
-      letter-spacing: 0.3px;
-      text-transform: uppercase;
-    }
-
-    .nav-btn.active {
-      color: var(--abc-blue);
-    }
-
-    .nav-btn svg {
-      width: 24px;
-      height: 24px;
-      stroke-width: 1.8;
-    }
-
-    /* ─── Pages ─── */
-    .page { display: none; animation: fadeUp 0.3s ease; }
-    .page.active { display: block; }
-
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(12px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    /* ─── HOME ─── */
-    .home-hero {
-      position: relative;
-      padding: 48px 24px 40px;
-      text-align: center;
-      overflow: hidden;
-    }
-
-    .home-hero::before {
-      content: '';
-      position: absolute;
-      top: -60px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 300px;
-      height: 300px;
-      background: radial-gradient(circle, rgba(74, 159, 217, 0.12) 0%, transparent 70%);
-      pointer-events: none;
-    }
-
-    .home-logo {
-      width: 88px;
-      height: 88px;
-      border-radius: 22px;
+      align-items: baseline;
+      justify-content: space-between;
       margin-bottom: 20px;
-      box-shadow: 0 8px 32px rgba(74, 159, 217, 0.15);
     }
 
-    .home-hero h1 {
-      font-size: 26px;
-      font-weight: 600;
-      letter-spacing: -0.5px;
-      margin-bottom: 8px;
-    }
-
-    .home-hero h1 span { color: var(--abc-blue); }
-
-    .home-tagline {
-      color: var(--text-secondary);
-      font-size: 14px;
-      line-height: 1.5;
-      max-width: 300px;
-      margin: 0 auto 28px;
-      font-weight: 300;
-    }
-
-    .home-stats {
+    .wordmark {
       display: flex;
-      justify-content: center;
-      gap: 8px;
-      margin-bottom: 32px;
-    }
-
-    .home-stat {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 14px 18px;
-      flex: 1;
-      max-width: 110px;
-    }
-
-    .home-stat-num {
-      display: block;
-      font-size: 22px;
-      font-weight: 700;
-      color: var(--abc-blue);
-      letter-spacing: -0.5px;
-    }
-
-    .home-stat-label {
-      display: block;
-      font-size: 10px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      margin-top: 2px;
-    }
-
-    .home-sectors {
-      padding: 0 20px 32px;
-    }
-
-    .section-label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      color: var(--text-muted);
-      margin-bottom: 14px;
-      padding-left: 4px;
-      font-weight: 500;
-    }
-
-    .sector-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+      align-items: center;
       gap: 10px;
     }
 
-    .sector-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 18px 16px;
-      transition: all 0.2s;
-    }
-
-    .sector-card:active {
-      transform: scale(0.97);
-    }
-
-    .sector-icon {
-      font-size: 24px;
-      margin-bottom: 10px;
-    }
-
-    .sector-name {
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 3px;
-    }
-
-    .sector-count {
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-
-    .home-footer {
-      text-align: center;
-      padding: 20px 20px 8px;
-      border-top: 1px solid var(--border);
-      margin: 0 20px;
-    }
-
-    .home-footer-text {
-      font-size: 11px;
-      color: var(--text-muted);
-      line-height: 1.6;
-    }
-
-    /* ─── BOARD ─── */
-    .board-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 20px 20px 16px;
-    }
-
-    .board-header h2 {
-      font-size: 20px;
-      font-weight: 600;
-      letter-spacing: -0.3px;
-    }
-
-    .btn-write {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      background: var(--abc-blue);
-      color: #fff;
-      border: none;
-      border-radius: 20px;
-      padding: 8px 16px;
-      font-family: inherit;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .btn-write:active { background: var(--abc-blue-dark); }
-
-    .btn-write svg { width: 16px; height: 16px; }
-
-    .post-list { padding: 0 20px 20px; }
-
-    .post-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 18px;
-      margin-bottom: 10px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .post-card:active {
-      background: var(--bg-card-hover);
-      transform: scale(0.98);
-    }
-
-    .post-meta {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-
-    .post-avatar {
-      width: 28px;
+    .wordmark img {
       height: 28px;
-      border-radius: 50%;
-      background: var(--abc-blue);
+      width: auto;
+    }
+
+    .wordmark .count {
+      font-weight: 300;
+      color: var(--text-3);
+      font-size: 13px;
+      font-family: var(--font-mono);
+      letter-spacing: 0;
+    }
+
+    .add-btn {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--accent);
+      background: none;
+      border: 1px solid var(--accent);
+      padding: 6px 12px;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .add-btn:active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    /* ─── Tabs ─── */
+
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .tabs::-webkit-scrollbar { display: none; }
+
+    .tab {
+      flex-shrink: 0;
+      padding: 10px 16px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+      white-space: nowrap;
+    }
+
+    .tab:hover { color: var(--text-2); }
+
+    .tab.active {
+      color: var(--text-1);
+      border-bottom-color: var(--text-1);
+    }
+
+    .tab .n {
+      font-weight: 500;
+      margin-left: 3px;
+      color: inherit;
+      opacity: 0.6;
+    }
+
+    /* ─── Portfolio List ─── */
+
+    .list {
+      padding: 0 20px 100px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 3px 36px 1fr auto;
+      gap: 0 14px;
+      align-items: center;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border-light);
+      cursor: pointer;
+      transition: background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .row:active {
+      background: rgba(0,0,0,0.02);
+      margin: 0 -20px;
+      padding: 14px 20px;
+    }
+
+    .row-indicator {
+      width: 3px;
+      height: 28px;
+      border-radius: 1px;
+    }
+
+    .row-indicator.active { background: var(--active); }
+    .row-indicator.stale { background: var(--stale); }
+    .row-indicator.dead { background: var(--dead); }
+    
+    .row-logo {
+      width: 36px;
+      height: 36px;
+      object-fit: contain;
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      padding: 3px;
+    }
+
+    .row-logo.placeholder {
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 12px;
-      font-weight: 600;
-      color: #fff;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-3);
+      background: var(--border-light);
+      border: none;
+    }
+
+    .row-info {
+      min-width: 0;
+    }
+
+    .row-name {
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.3;
+    }
+
+    .row-meta {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-3);
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .row-right {
+      text-align: right;
       flex-shrink: 0;
     }
 
-    .post-author {
-      font-size: 13px;
-      font-weight: 500;
-    }
-
-    .post-time {
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-left: auto;
-    }
-
-    .post-title {
-      font-size: 15px;
-      font-weight: 600;
-      margin-bottom: 6px;
-      line-height: 1.4;
-    }
-
-    .post-preview {
-      font-size: 13px;
-      color: var(--text-secondary);
-      line-height: 1.5;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-
-    .post-footer {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      margin-top: 12px;
-      color: var(--text-muted);
+    .row-count {
+      font-family: var(--font-mono);
       font-size: 12px;
+      font-weight: 500;
+      color: var(--text-2);
     }
 
-    .post-footer svg { width: 14px; height: 14px; }
-
-    .empty-state {
-      text-align: center;
-      padding: 60px 40px;
-      color: var(--text-muted);
+    .row-date {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-3);
+      margin-top: 2px;
     }
 
-    .empty-state svg {
-      width: 48px;
-      height: 48px;
-      margin-bottom: 16px;
-      opacity: 0.3;
+    .row-stale-mark {
+      display: inline-block;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--stale);
+      margin-left: 4px;
+      vertical-align: middle;
     }
 
-    .empty-state p {
-      font-size: 14px;
-      line-height: 1.6;
+    /* ─── Detail View ─── */
+
+    .detail-view {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--canvas);
+      z-index: 200;
+      overflow-y: auto;
     }
 
-    /* ─── Post Detail ─── */
-    .detail-back {
+    .detail-view.open { display: block; }
+
+    .detail-header {
+      position: sticky;
+      top: 0;
+      background: var(--canvas);
+      padding: 16px 20px;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 16px;
+      border-bottom: 1px solid var(--border);
+      z-index: 10;
+    }
+
+    .back-btn {
+      font-size: 16px;
+      cursor: pointer;
+      padding: 4px 0;
       background: none;
       border: none;
-      color: var(--abc-blue);
-      font-family: inherit;
-      font-size: 14px;
-      font-weight: 500;
-      padding: 16px 20px;
-      cursor: pointer;
-    }
-
-    .detail-back svg { width: 18px; height: 18px; }
-
-    .detail-content {
-      padding: 0 20px 20px;
+      color: var(--text-2);
+      font-family: var(--font-body);
+      font-weight: 300;
     }
 
     .detail-title {
-      font-size: 20px;
-      font-weight: 700;
-      line-height: 1.4;
-      margin-bottom: 12px;
-      letter-spacing: -0.3px;
+      flex: 1;
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 400;
+      letter-spacing: -0.01em;
     }
 
+    .status-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 4px 8px;
+      border: 1px solid;
+      cursor: pointer;
+    }
+
+    .status-tag.active { color: var(--active); border-color: var(--active); }
+    .status-tag.stale { color: var(--stale); border-color: var(--stale); }
+    .status-tag.dead { color: var(--dead); border-color: var(--dead); }
+    
     .detail-body {
-      font-size: 15px;
-      line-height: 1.7;
-      color: var(--text-secondary);
-      white-space: pre-wrap;
-      word-break: break-word;
+      padding: 24px 20px 100px;
     }
 
     .detail-meta {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-3);
+      letter-spacing: 0.02em;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border-light);
+      margin-bottom: 24px;
+    }
+
+    .section-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-3);
+      margin-bottom: 16px;
+    }
+
+    /* ─── Update Entries ─── */
+
+    .update-list {
       display: flex;
-      align-items: center;
-      gap: 8px;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .update-entry {
       padding: 16px 0;
+      border-bottom: 1px solid var(--border-light);
+      cursor: pointer;
+    }
+
+    .update-entry:last-child { border-bottom: none; }
+
+    .update-date {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-3);
       margin-bottom: 4px;
     }
 
-    .detail-delete {
-      margin-left: auto;
-      background: none;
-      border: none;
-      color: var(--text-muted);
-      font-size: 12px;
-      cursor: pointer;
-      padding: 4px 8px;
-    }
-
-    .detail-delete:hover { color: var(--danger); }
-
-    /* Comments */
-    .comments-section {
-      border-top: 1px solid var(--border);
-      margin: 0 20px;
-      padding-top: 20px;
-    }
-
-    .comments-title {
+    .update-title {
       font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 16px;
-      color: var(--text-secondary);
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      line-height: 1.4;
     }
 
-    .comment {
-      margin-bottom: 16px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .comment:last-of-type { border-bottom: none; }
-
-    .comment-meta {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 6px;
-    }
-
-    .comment-avatar {
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      background: var(--border-light);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--text-secondary);
-    }
-
-    .comment-author { font-size: 13px; font-weight: 500; }
-    .comment-time { font-size: 11px; color: var(--text-muted); margin-left: auto; }
-
-    .comment-body {
-      font-size: 14px;
-      color: var(--text-secondary);
+    .update-summary {
+      font-size: 13px;
       line-height: 1.6;
-      padding-left: 30px;
-      white-space: pre-wrap;
-      word-break: break-word;
+      color: var(--text-2);
+      margin-top: 8px;
+      display: none;
     }
 
-    .comment-delete {
-      background: none;
-      border: none;
-      color: var(--text-muted);
-      font-size: 11px;
-      cursor: pointer;
-      padding: 2px 6px;
-      margin-left: 4px;
-    }
+    .update-summary.expanded { display: block; }
 
-    .comment-delete:hover { color: var(--danger); }
-
-    .comment-form {
-      position: fixed;
-      bottom: calc(72px + var(--safe-bottom));
-      left: 0;
-      right: 0;
-      background: rgba(11, 14, 19, 0.95);
-      backdrop-filter: blur(20px);
-      border-top: 1px solid var(--border);
-      padding: 12px 16px;
+    .update-attachments {
       display: flex;
-      gap: 8px;
-      z-index: 150;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
     }
 
-    .comment-input {
-      flex: 1;
-      background: var(--bg-elevated);
+    .attachment-link {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--accent);
+      text-decoration: none;
+      padding: 3px 8px;
       border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 10px 16px;
-      color: var(--text);
-      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+
+    .attachment-link:hover { border-color: var(--accent); }
+
+    .add-update-btn {
+      width: 100%;
+      padding: 14px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-2);
+      cursor: pointer;
+      margin-top: 24px;
+      transition: border-color 0.2s, color 0.2s;
+    }
+
+    .add-update-btn:active {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* ─── Empty State ─── */
+
+    .empty-state {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--text-3);
+    }
+
+    .empty-state p {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.02em;
+    }
+
+    /* ─── Modal ─── */
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(28, 28, 28, 0.3);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      z-index: 300;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      width: 100%;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 28px 20px 32px;
+      border-top: 1px solid var(--border);
+      animation: modalIn 0.25s ease;
+    }
+
+    @keyframes modalIn {
+      from { transform: translateY(40px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .modal-title {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 400;
+      margin-bottom: 24px;
+    }
+
+    .field {
+      margin-bottom: 20px;
+    }
+
+    .field-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-3);
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .field input,
+    .field textarea,
+    .field select {
+      width: 100%;
+      padding: 10px 0;
+      font-family: var(--font-body);
       font-size: 14px;
+      color: var(--text-1);
+      border: none;
+      border-bottom: 1px solid var(--border);
+      background: transparent;
       outline: none;
       transition: border-color 0.2s;
     }
 
-    .comment-input:focus { border-color: var(--abc-blue); }
+    .field input:focus,
+    .field textarea:focus,
+    .field select:focus {
+      border-bottom-color: var(--text-1);
+    }
 
-    .comment-submit {
-      width: 38px;
-      height: 38px;
-      border-radius: 50%;
-      background: var(--abc-blue);
-      border: none;
-      color: #fff;
+    .field textarea {
+      min-height: 64px;
+      resize: vertical;
+      border: 1px solid var(--border);
+      padding: 10px;
+    }
+
+    .field textarea:focus {
+      border-color: var(--text-1);
+    }
+
+    .field select {
+      -webkit-appearance: none;
+      appearance: none;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      transition: background 0.2s;
     }
 
-    .comment-submit:active { background: var(--abc-blue-dark); }
-    .comment-submit:disabled { opacity: 0.4; }
-    .comment-submit svg { width: 18px; height: 18px; }
-
-    /* ─── Write Form ─── */
-    .write-page { padding: 0 20px 100px; }
-
-    .write-header {
+    .file-upload-area {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 16px 0;
+      gap: 10px;
     }
 
-    .write-cancel {
+    .file-btn-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      color: var(--text-2);
+      transition: border-color 0.15s;
+    }
+
+    .file-btn-label:active { border-color: var(--text-1); }
+
+    .file-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .file-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 3px 8px;
+      border: 1px solid var(--border);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-2);
+    }
+
+    .file-tag .remove {
+      cursor: pointer;
+      color: var(--text-3);
+      font-size: 13px;
+      line-height: 1;
+    }
+
+    .file-tag .remove:hover { color: var(--accent); }
+
+    .link-inputs {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .link-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    .link-row input { flex: 1; }
+
+    .link-row .remove-link {
+      padding: 10px 8px;
       background: none;
       border: none;
-      color: var(--text-muted);
-      font-family: inherit;
-      font-size: 14px;
+      color: var(--text-3);
       cursor: pointer;
-    }
-
-    .write-submit {
-      background: var(--abc-blue);
-      color: #fff;
-      border: none;
-      border-radius: 20px;
-      padding: 8px 20px;
-      font-family: inherit;
       font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
     }
 
-    .write-submit:disabled { opacity: 0.4; }
-    .write-submit:active { background: var(--abc-blue-dark); }
-
-    .write-input {
-      width: 100%;
-      background: transparent;
-      border: none;
-      color: var(--text);
-      font-family: inherit;
-      outline: none;
-    }
-
-    .write-title-input {
-      font-size: 22px;
-      font-weight: 600;
+    .add-link-btn {
+      font-family: var(--font-mono);
+      font-size: 11px;
       padding: 8px 0;
-      margin-bottom: 4px;
-      letter-spacing: -0.3px;
+      background: none;
+      border: none;
+      color: var(--text-3);
+      cursor: pointer;
+      text-align: left;
+      letter-spacing: 0.02em;
     }
 
-    .write-body-input {
-      font-size: 15px;
-      line-height: 1.7;
-      min-height: 200px;
-      resize: none;
-      color: var(--text-secondary);
+    .add-link-btn:hover { color: var(--text-2); }
+
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 28px;
     }
 
-    .write-title-input::placeholder,
-    .write-body-input::placeholder {
-      color: var(--text-muted);
+    .btn-cancel {
+      flex: 1;
+      padding: 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-3);
+      cursor: pointer;
     }
 
-    /* ─── PORTFOLIO ─── */
-    .portfolio-header {
-      padding: 24px 20px 8px;
+    .btn-submit {
+      flex: 1;
+      padding: 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: var(--text-1);
+      border: 1px solid var(--text-1);
+      color: var(--surface);
+      cursor: pointer;
     }
 
-    .portfolio-header h2 {
-      font-size: 20px;
-      font-weight: 600;
-      letter-spacing: -0.3px;
+    .btn-submit:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .btn-submit:active:not(:disabled) {
+      background: var(--accent-dark);
+      border-color: var(--accent-dark);
+    }
+
+    /* ─── Status Popup ─── */
+
+    .status-popup {
+      display: none;
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 20px;
+      z-index: 400;
+      min-width: 240px;
+    }
+
+    .status-popup.open { display: block; }
+
+    .status-popup h3 {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-3);
       margin-bottom: 16px;
     }
 
-    .pf-filters {
+    .status-option {
       display: flex;
-      gap: 6px;
-      overflow-x: auto;
-      padding: 0 20px 16px;
-      -ms-overflow-style: none;
-      scrollbar-width: none;
-    }
-
-    .pf-filters::-webkit-scrollbar { display: none; }
-
-    .pf-filter-btn {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-      border-radius: 20px;
-      padding: 7px 16px;
-      font-family: inherit;
-      font-size: 13px;
-      font-weight: 500;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 8px;
       cursor: pointer;
-      white-space: nowrap;
-      transition: all 0.2s;
+      transition: background 0.1s;
     }
 
-    .pf-filter-btn.active {
-      background: var(--abc-blue);
-      border-color: var(--abc-blue);
-      color: #fff;
+    .status-option:hover { background: var(--canvas); }
+
+    .status-option.current {
+      background: var(--canvas);
     }
 
-    .pf-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      padding: 0 20px 20px;
+    .status-indicator {
+      width: 3px;
+      height: 16px;
+      border-radius: 1px;
     }
 
-    .pf-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px 14px;
-      text-align: center;
-      text-decoration: none;
-      color: inherit;
-      transition: all 0.15s;
-    }
-
-    .pf-card:active {
-      background: var(--bg-card-hover);
-      transform: scale(0.97);
-    }
-
-    .pf-card-logo {
-      width: 48px;
-      height: 48px;
-      object-fit: contain;
-      margin-bottom: 10px;
-      border-radius: 8px;
-    }
-
-    .pf-card-name {
+    .status-indicator.active { background: var(--active); }
+    .status-indicator.stale { background: var(--stale); }
+    .status-indicator.dead { background: var(--dead); }
+    
+    .status-option .label {
       font-size: 13px;
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-
-    .pf-card-desc {
-      font-size: 11px;
-      color: var(--text-muted);
-      line-height: 1.4;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-
-    .pf-card-cat {
-      display: inline-block;
-      font-size: 9px;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: var(--abc-blue);
-      margin-top: 8px;
-      font-weight: 500;
+      font-weight: 400;
+      color: var(--text-1);
     }
 
     /* ─── Loading ─── */
-    .loading {
-      display: flex;
-      justify-content: center;
-      padding: 40px;
-    }
 
     .spinner {
-      width: 24px;
-      height: 24px;
-      border: 2px solid var(--border);
-      border-top-color: var(--abc-blue);
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 1.5px solid var(--border);
+      border-top-color: var(--text-2);
       border-radius: 50%;
-      animation: spin 0.6s linear infinite;
+      animation: spin 0.8s linear infinite;
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ─── Toast ─── */
-    .toast {
-      position: fixed;
-      top: 80px;
-      left: 50%;
-      transform: translateX(-50%) translateY(-20px);
-      background: var(--bg-elevated);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px 20px;
-      font-size: 13px;
-      z-index: 999;
-      opacity: 0;
-      transition: all 0.3s;
-      pointer-events: none;
-    }
-
-    .toast.show {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
+    .loading-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 50vh;
     }
   </style>
 </head>
 <body>
-  <!-- Auth Gate -->
-  <div id="auth-gate" style="display:flex; align-items:center; justify-content:center; min-height:100vh; background:var(--bg);">
-    <div style="text-align:center; padding:24px;">
-      <div class="spinner" style="margin:0 auto 16px;"></div>
-      <p style="color:var(--text-secondary); font-size:14px;" id="auth-msg">멤버 확인 중...</p>
+
+<!-- Main View -->
+<div id="main-view">
+  <div class="header">
+    <div class="header-top">
+      <div class="wordmark">
+        <img src="/assets/logo.png" alt="ABC Partners">
+        <span class="count">v0.2.0 · <span id="total-count"></span></span>
+      </div>
+      <button class="add-btn" id="fab-add">+ New</button>
+    </div>
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-status="">All</button>
+      <button class="tab" data-status="active">Active</button>
+      <button class="tab" data-status="stale">Stale</button>
+      <button class="tab" data-status="dead">Closed</button>
     </div>
   </div>
-
-  <div class="app" id="app" style="display:none;">
-    <!-- Header -->
-    <header class="header">
-      <div class="header-inner">
-        <img src="/assets/logo.png" alt="ABC" class="header-logo">
-        <div class="header-title"><span>ABC</span> Partners</div>
-      </div>
-    </header>
-
-    <!-- Pages -->
-    <main>
-      <!-- HOME -->
-      <div class="page active" id="page-home">
-        <div class="home-hero">
-          <img src="/assets/logo.png" alt="ABC Partners" class="home-logo">
-          <h1><span>Follow the Problem,</span><br>Not the Consensus</h1>
-          <p class="home-tagline">Blockchain, Bio, Culture, IT 전 분야에 걸쳐 구조적 변화가 필요한 곳에 투자합니다.</p>
-          <div class="home-stats">
-            <div class="home-stat">
-              <span class="home-stat-num">26+</span>
-              <span class="home-stat-label">Portfolio</span>
-            </div>
-            <div class="home-stat">
-              <span class="home-stat-num">4</span>
-              <span class="home-stat-label">Sectors</span>
-            </div>
-            <div class="home-stat">
-              <span class="home-stat-num">2021</span>
-              <span class="home-stat-label">Founded</span>
-            </div>
-          </div>
-        </div>
-        <div class="home-sectors">
-          <div class="section-label">Investment Sectors</div>
-          <div class="sector-grid">
-            <div class="sector-card" onclick="showPortfolio('blockchain')">
-              <div class="sector-icon">⛓️</div>
-              <div class="sector-name">Blockchain</div>
-              <div class="sector-count">8 companies</div>
-            </div>
-            <div class="sector-card" onclick="showPortfolio('it')">
-              <div class="sector-icon">💻</div>
-              <div class="sector-name">IT</div>
-              <div class="sector-count">4 companies</div>
-            </div>
-            <div class="sector-card" onclick="showPortfolio('bio')">
-              <div class="sector-icon">🧬</div>
-              <div class="sector-name">Bio</div>
-              <div class="sector-count">3 companies</div>
-            </div>
-            <div class="sector-card" onclick="showPortfolio('culture')">
-              <div class="sector-icon">🎮</div>
-              <div class="sector-name">Culture</div>
-              <div class="sector-count">11 companies</div>
-            </div>
-          </div>
-        </div>
-        <div class="home-footer">
-          <p class="home-footer-text">
-            Seoul, South Korea · contact@abc-partners.com<br>
-            &copy; 2021 ABC Partners. All rights reserved.
-          </p>
-        </div>
-      </div>
-
-      <!-- BOARD -->
-      <div class="page" id="page-board">
-        <div id="board-list-view">
-          <div class="board-header">
-            <h2>Board</h2>
-            <button class="btn-write" onclick="showWriteForm()">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-              글쓰기
-            </button>
-          </div>
-          <div class="post-list" id="post-list">
-            <div class="loading"><div class="spinner"></div></div>
-          </div>
-        </div>
-
-        <!-- Write Form -->
-        <div id="write-view" style="display:none">
-          <div class="write-page">
-            <div class="write-header">
-              <button class="write-cancel" onclick="hideWriteForm()">취소</button>
-              <button class="write-submit" id="btn-submit-post" onclick="submitPost()">게시</button>
-            </div>
-            <input class="write-input write-title-input" id="write-title" placeholder="제목을 입력하세요" maxlength="100">
-            <textarea class="write-input write-body-input" id="write-body" placeholder="내용을 입력하세요..."></textarea>
-          </div>
-        </div>
-
-        <!-- Post Detail -->
-        <div id="detail-view" style="display:none">
-          <button class="detail-back" onclick="hideDetail()">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>
-            목록으로
-          </button>
-          <div class="detail-content" id="detail-content"></div>
-          <div class="comments-section" id="comments-section"></div>
-          <div class="comment-form" id="comment-form">
-            <input class="comment-input" id="comment-input" placeholder="댓글을 입력하세요...">
-            <button class="comment-submit" id="btn-comment" onclick="submitComment()">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"/></svg>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- PORTFOLIO -->
-      <div class="page" id="page-portfolio">
-        <div class="portfolio-header">
-          <h2>Portfolio</h2>
-        </div>
-        <div class="pf-filters" id="pf-filters">
-          <button class="pf-filter-btn active" data-cat="all">All</button>
-          <button class="pf-filter-btn" data-cat="blockchain">Blockchain</button>
-          <button class="pf-filter-btn" data-cat="it">IT</button>
-          <button class="pf-filter-btn" data-cat="bio">Bio</button>
-          <button class="pf-filter-btn" data-cat="culture">Culture</button>
-        </div>
-        <div class="pf-grid" id="pf-grid"></div>
-      </div>
-    </main>
-
-    <!-- Bottom Nav -->
-    <nav class="nav">
-      <div class="nav-inner">
-        <button class="nav-btn active" data-page="home">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
-          Home
-        </button>
-        <button class="nav-btn" data-page="board">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 0 1 1.037-.443 48.282 48.282 0 0 0 5.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z"/></svg>
-          Board
-        </button>
-        <button class="nav-btn" data-page="portfolio">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0 1 12 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 0 1-.673-.38m0 0A2.18 2.18 0 0 1 3 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 0 1 3.413-.387m7.5 0V5.25A2.25 2.25 0 0 0 13.5 3h-3a2.25 2.25 0 0 0-2.25 2.25v.894m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
-          Portfolio
-        </button>
-      </div>
-    </nav>
+  <div class="list" id="card-list">
+    <div class="loading-screen"><div class="spinner"></div></div>
   </div>
+</div>
 
-  <div class="toast" id="toast"></div>
+<!-- Detail View -->
+<div class="detail-view" id="detail-view">
+  <div class="detail-header">
+    <button class="back-btn" id="back-btn">&larr;</button>
+    <span class="detail-title" id="detail-name"></span>
+    <span class="status-tag" id="detail-status" data-id=""></span>
+  </div>
+  <div class="detail-body">
+    <div class="detail-meta" id="detail-assignee"></div>
+    <div class="section-label">Updates</div>
+    <div class="update-list" id="update-list"></div>
+    <button class="add-update-btn" id="add-update-btn">+ Add update</button>
+  </div>
+</div>
 
-  <script>
-    // ─── Telegram WebApp ───
-    const tg = window.Telegram?.WebApp;
-    let currentUser = { id: 0, name: 'Guest' };
+<!-- Add Portfolio Modal -->
+<div class="modal-overlay" id="modal-portfolio">
+  <div class="modal">
+    <h2 class="modal-title">New Portfolio</h2>
+    <div class="field">
+      <label class="field-label">Company / Fund</label>
+      <input type="text" id="pf-name" placeholder="Name">
+    </div>
+    <div class="field">
+      <label class="field-label">Status</label>
+      <select id="pf-status">
+        <option value="active">Active</option>
+        <option value="stale">Stale</option>
+        <option value="dead">Closed</option>
+      </select>
+    </div>
+    <div class="btn-row">
+      <button class="btn-cancel" onclick="closeModal('modal-portfolio')">Cancel</button>
+      <button class="btn-submit" id="btn-create-pf">Create</button>
+    </div>
+  </div>
+</div>
 
-    if (tg) {
-      tg.ready();
-      tg.expand();
-      tg.setHeaderColor('#0B0E13');
-      tg.setBackgroundColor('#0B0E13');
-      if (tg.initDataUnsafe?.user) {
-        const u = tg.initDataUnsafe.user;
-        currentUser = {
-          id: u.id,
-          name: u.first_name + (u.last_name ? ' ' + u.last_name : '')
-        };
-      }
+<!-- Add Update Modal -->
+<div class="modal-overlay" id="modal-update">
+  <div class="modal">
+    <h2 class="modal-title">Add Update</h2>
+    <div class="field">
+      <label class="field-label">Date</label>
+      <input type="date" id="up-date">
+    </div>
+    <div class="field">
+      <label class="field-label">Title</label>
+      <input type="text" id="up-title" placeholder="Update title">
+    </div>
+    <div class="field">
+      <label class="field-label">Summary</label>
+      <textarea id="up-summary" placeholder="Optional summary"></textarea>
+    </div>
+    <div class="field">
+      <label class="field-label">Attachments</label>
+      <div class="file-upload-area">
+        <label class="file-btn-label">Choose files
+          <input type="file" id="up-files" multiple style="display:none">
+        </label>
+      </div>
+      <div class="file-list" id="file-list"></div>
+    </div>
+    <div class="field">
+      <label class="field-label">Drive Links</label>
+      <div class="link-inputs" id="link-inputs">
+        <div class="link-row">
+          <input type="url" placeholder="https://drive.google.com/..." class="gdrive-link">
+        </div>
+      </div>
+      <button class="add-link-btn" id="add-link-btn">+ Add another link</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn-cancel" onclick="closeModal('modal-update')">Cancel</button>
+      <button class="btn-submit" id="btn-create-update">Submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Status Change Popup -->
+<div class="modal-overlay" id="status-overlay">
+  <div class="status-popup" id="status-popup">
+    <h3>Change Status</h3>
+    <div class="status-option" data-status="active">
+      <span class="status-indicator active"></span>
+      <span class="label">Active</span>
+    </div>
+    <div class="status-option" data-status="stale">
+      <span class="status-indicator stale"></span>
+      <span class="label">Stale</span>
+    </div>
+    <div class="status-option" data-status="dead">
+      <span class="status-indicator dead"></span>
+      <span class="label">Closed</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  const tg = window.Telegram?.WebApp;
+  if (tg) {
+    tg.ready();
+    tg.expand();
+    tg.setHeaderColor('#F5F7FA');
+    tg.setBackgroundColor('#F5F7FA');
+  }
+
+  const API = '';
+  const initData = tg?.initData || '';
+  function headers(extra = {}) {
+    return { 'X-Telegram-Init-Data': initData, ...extra };
+  }
+
+  let portfolios = [];
+  let currentFilter = '';
+  let currentPortfolioId = null;
+  let statusChangeId = null;
+  let selectedFiles = [];
+
+  const STATUS_LABEL = { active: 'Active', stale: 'Stale', dead: 'Closed' };
+
+  async function loadPortfolios() {
+    try {
+      const url = currentFilter ? `${API}/api/portfolios?status=${currentFilter}` : `${API}/api/portfolios`;
+      const res = await fetch(url, { headers: headers() });
+      portfolios = await res.json();
+      renderCards();
+    } catch (e) { console.error('Load error:', e); }
+  }
+
+  function renderCards() {
+    const list = document.getElementById('card-list');
+    document.getElementById('total-count').textContent = portfolios.length;
+
+    if (portfolios.length === 0) {
+      list.innerHTML = '<div class="empty-state"><p>No portfolios found</p></div>';
+      return;
     }
 
-    // ─── Auth Check ───
-    (async function checkAuth() {
-      const gate = document.getElementById('auth-gate');
-      const appEl = document.getElementById('app');
-      const authMsg = document.getElementById('auth-msg');
+    list.innerHTML = portfolios.map(p => {
+      const logoHtml = p.logo_url
+        ? `<img class="row-logo" src="${p.logo_url}" alt="${p.name}" onerror="this.outerHTML='<div class=\\'row-logo placeholder\\'>${p.name[0]}</div>'">`
+        : `<div class="row-logo placeholder">${p.name[0]}</div>`;
 
-      if (!currentUser.id) {
-        authMsg.textContent = 'Telegram에서 열어주세요.';
-        return;
-      }
+      const lastUpdate = p.last_update_at
+        ? new Date(p.last_update_at + 'Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        : '\u2014';
 
-      try {
-        const res = await fetch(`/api/auth/check?user_id=${currentUser.id}`);
-        if (res.ok) {
-          gate.style.display = 'none';
-          appEl.style.display = '';
-        } else {
-          authMsg.innerHTML = '⛔ 접근 권한이 없습니다.<br><span style="font-size:12px;color:var(--text-muted);margin-top:8px;display:inline-block;">ABC Partners 그룹 멤버만 이용 가능합니다.</span>';
-          gate.querySelector('.spinner')?.remove();
-        }
-      } catch (e) {
-        authMsg.textContent = '서버 연결 실패. 다시 시도해주세요.';
-      }
-    })();
+      const staleMark = p.is_stale_warning ? '<span class="row-stale-mark"></span>' : '';
 
-    // ─── Portfolio Data ───
-    const portfolioData = [
-      { name: "Klaytn", desc: "Global public blockchain platform by Kakao", cat: "blockchain", logo: "logo-klaytn.png", url: "https://www.klaytn.com" },
-      { name: "K Bank", desc: "Korea's leading internet-only bank", cat: "it", logo: "logo-kbank.png", url: "https://www.kbanknow.com" },
-      { name: "Bakkt", desc: "Digital asset trading platform founded by ICE", cat: "blockchain", logo: "logo-bakkt.png", url: "https://www.bakkt.com" },
-      { name: "TrustToken", desc: "Asset-backed stablecoin issuer", cat: "blockchain", logo: "logo-trusttoken.png", url: "https://www.trusttoken.com" },
-      { name: "Settle", desc: "Blockchain-based cross-border payment network", cat: "blockchain", logo: "logo-settle.png", url: "https://settlenetwork.com" },
-      { name: "Lition", desc: "SAP-partnered enterprise blockchain solution", cat: "blockchain", logo: "logo-lition.png", url: "https://www.lition.io" },
-      { name: "League of Traders", desc: "Crypto social trading platform", cat: "blockchain", logo: "logo-lot.png", url: "https://leagueoftraders.io" },
-      { name: "Meta Bora", desc: "Gaming-focused blockchain ecosystem", cat: "blockchain", logo: "logo-metabora.png", url: "https://borachain.io" },
-      { name: "Musinsa", desc: "Korea's largest online fashion commerce", cat: "it", logo: "logo-musinsa.png", url: "https://www.musinsa.com" },
-      { name: "Blind", desc: "Anonymous professional community platform", cat: "it", logo: "logo-blind.png", url: "https://www.teamblind.com" },
-      { name: "Beam Mobility", desc: "Southeast Asia's e-scooter micro-mobility", cat: "it", logo: "logo-beam.png", url: "https://www.ridebeam.com" },
-      { name: "Techfloor", desc: "Smart factory IoT technology solutions", cat: "it", logo: "logo-techfloor.png", url: "https://www.techfloor.co.kr" },
-      { name: "Rakuten Medical", desc: "Photoimmunotherapy cancer treatment pioneer", cat: "bio", logo: "logo-rakumed.png", url: "https://www.rakuten-med.com" },
-      { name: "Cellatoz", desc: "iPSC-derived stem cell therapy", cat: "bio", logo: "logo-cellatoz.jpg", url: "https://cellatozrx.com" },
-      { name: "Femtobiomed", desc: "Cell engineering and anticancer therapeutics", cat: "bio", logo: "logo-pemtobio.jpg", url: "https://femtobiomed.com" },
-      { name: "Morenori Soft", desc: "Creator of Islet, Korea's sandbox game", cat: "culture", logo: "logo-morenorisoft.png", url: "https://www.morenori.com" },
-      { name: "Krafton", desc: "Creator of PUBG, global game publisher", cat: "culture", logo: "logo-krafton.png", url: "https://www.krafton.com" },
-      { name: "AmazeVR", desc: "VR concert and immersive entertainment", cat: "culture", logo: "logo-amaze.jpg", url: "https://about.amazevr.com" },
-      { name: "Third Culture Content", desc: "Global content production and IP investment", cat: "culture", logo: "logo-tcc.png", url: "https://www.thirdculturecontent.com" },
-      { name: "As Blanc", desc: "Luxury Korean beauty & wellness spa brand", cat: "culture", logo: "logo-asblanc.png", url: "https://asblanc.modoo.at" },
-      { name: "Foodinko", desc: "Korean F&B brand global expansion", cat: "culture", logo: "logo-foodinko.png", url: "https://foodinko.com" },
-      { name: "Proto Reality Games", desc: "Next-gen AR/VR game development", cat: "culture", logo: "logo-prgc.png", url: "https://protorealitygames.com" },
-      { name: "Tunegem", desc: "AI-powered music creation and distribution", cat: "culture", logo: "logo-tg.png", url: "https://www.tunegem.io" },
-      { name: "PlayOne Games", desc: "Mobile casual game publishing", cat: "culture", logo: "logo-plo.png", url: "https://playone.games" },
-      { name: "Helinox", desc: "Ultra-lightweight outdoor furniture brand", cat: "culture", logo: "logo-helinox.png", url: "https://www.helinox.com" },
-      { name: "GFFG", desc: "F&B brand operator behind Knotted Donuts", cat: "culture", logo: "logo-gffg.png", url: "https://www.gffg.co.kr" }
-    ];
-
-    // ─── State ───
-    let currentPage = 'home';
-    let currentPostId = null;
-    let currentFilter = 'all';
-
-    // ─── Navigation ───
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const page = btn.dataset.page;
-        navigateTo(page);
-      });
-    });
-
-    function navigateTo(page) {
-      currentPage = page;
-      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-      document.getElementById('page-' + page).classList.add('active');
-      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-      document.querySelector(`.nav-btn[data-page="${page}"]`).classList.add('active');
-
-      if (page === 'board') {
-        showBoardList();
-        loadPosts();
-      }
-      if (page === 'portfolio') renderPortfolio();
-    }
-
-    function showPortfolio(cat) {
-      navigateTo('portfolio');
-      currentFilter = cat;
-      document.querySelectorAll('.pf-filter-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.cat === cat);
-      });
-      renderPortfolio();
-    }
-
-    // ─── Portfolio ───
-    document.getElementById('pf-filters').addEventListener('click', e => {
-      const btn = e.target.closest('.pf-filter-btn');
-      if (!btn) return;
-      currentFilter = btn.dataset.cat;
-      document.querySelectorAll('.pf-filter-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      renderPortfolio();
-    });
-
-    function renderPortfolio() {
-      const grid = document.getElementById('pf-grid');
-      const items = currentFilter === 'all'
-        ? portfolioData
-        : portfolioData.filter(p => p.cat === currentFilter);
-
-      grid.innerHTML = items.map(p => `
-        <a href="${p.url}" target="_blank" rel="noopener" class="pf-card">
-          <img src="/assets/logos/${p.logo}" alt="${p.name}" class="pf-card-logo"
-               onerror="this.style.display='none'">
-          <div class="pf-card-name">${p.name}</div>
-          <div class="pf-card-desc">${p.desc}</div>
-          <span class="pf-card-cat">${p.cat}</span>
-        </a>
-      `).join('');
-    }
-
-    // ─── Board ───
-    async function loadPosts() {
-      const list = document.getElementById('post-list');
-      list.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-
-      try {
-        const res = await fetch('/api/posts');
-        const posts = await res.json();
-
-        if (posts.length === 0) {
-          list.innerHTML = `
-            <div class="empty-state">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
-              <p>아직 게시글이 없습니다.<br>첫 글을 작성해보세요!</p>
-            </div>`;
-          return;
-        }
-
-        list.innerHTML = posts.map(p => `
-          <div class="post-card" onclick="showPost(${p.id})">
-            <div class="post-meta">
-              <div class="post-avatar">${p.author_name[0]}</div>
-              <span class="post-author">${esc(p.author_name)}</span>
-              <span class="post-time">${timeAgo(p.created_at)}</span>
-            </div>
-            <div class="post-title">${esc(p.title)}</div>
-            <div class="post-preview">${esc(p.content)}</div>
-            <div class="post-footer">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 0 1-.923 1.785A5.969 5.969 0 0 0 6 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337Z"/></svg>
-              ${p.comment_count || 0}
-            </div>
+      return `
+        <div class="row" data-id="${p.id}" onclick="openDetail(${p.id})" oncontextmenu="openStatusChange(event, ${p.id})">
+          <div class="row-indicator ${p.status}"></div>
+          ${logoHtml}
+          <div class="row-info">
+            <div class="row-name">${p.name}${staleMark}</div>
+            <div class="row-meta">${p.assignee_name || 'Unassigned'}</div>
           </div>
-        `).join('');
-      } catch (e) {
-        list.innerHTML = '<div class="empty-state"><p>로딩 실패. 다시 시도해주세요.</p></div>';
-      }
-    }
-
-    function showBoardList() {
-      document.getElementById('board-list-view').style.display = '';
-      document.getElementById('write-view').style.display = 'none';
-      document.getElementById('detail-view').style.display = 'none';
-      document.getElementById('comment-form').style.display = 'none';
-    }
-
-    function showWriteForm() {
-      document.getElementById('board-list-view').style.display = 'none';
-      document.getElementById('write-view').style.display = '';
-      document.getElementById('write-title').value = '';
-      document.getElementById('write-body').value = '';
-      document.getElementById('write-title').focus();
-    }
-
-    function hideWriteForm() {
-      showBoardList();
-    }
-
-    async function submitPost() {
-      const title = document.getElementById('write-title').value.trim();
-      const content = document.getElementById('write-body').value.trim();
-      if (!title || !content) return toast('제목과 내용을 입력해주세요');
-
-      const btn = document.getElementById('btn-submit-post');
-      btn.disabled = true;
-
-      try {
-        await fetch('/api/posts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title, content,
-            author_name: currentUser.name,
-            author_id: currentUser.id
-          })
-        });
-        toast('게시글이 등록되었습니다');
-        showBoardList();
-        loadPosts();
-      } catch (e) {
-        toast('등록 실패');
-      } finally {
-        btn.disabled = false;
-      }
-    }
-
-    async function showPost(id) {
-      currentPostId = id;
-      document.getElementById('board-list-view').style.display = 'none';
-      document.getElementById('detail-view').style.display = '';
-      document.getElementById('comment-form').style.display = 'flex';
-
-      const detail = document.getElementById('detail-content');
-      const comments = document.getElementById('comments-section');
-      detail.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-      comments.innerHTML = '';
-
-      try {
-        const res = await fetch('/api/posts/' + id);
-        const post = await res.json();
-
-        const isAuthor = post.author_id === currentUser.id;
-        detail.innerHTML = `
-          <div class="detail-meta">
-            <div class="post-avatar">${post.author_name[0]}</div>
-            <span class="post-author">${esc(post.author_name)}</span>
-            <span class="post-time">${timeAgo(post.created_at)}</span>
-            ${isAuthor ? `<button class="detail-delete" onclick="deletePost(${post.id})">삭제</button>` : ''}
+          <div class="row-right">
+            <div class="row-count">${p.update_count || 0}</div>
+            <div class="row-date">${lastUpdate}</div>
           </div>
-          <h1 class="detail-title">${esc(post.title)}</h1>
-          <div class="detail-body">${esc(post.content)}</div>
-        `;
+        </div>`;
+    }).join('');
+  }
 
-        const cmts = post.comments || [];
-        comments.innerHTML = `
-          <div class="comments-title">댓글 ${cmts.length}개</div>
-          ${cmts.map(c => `
-            <div class="comment">
-              <div class="comment-meta">
-                <div class="comment-avatar">${c.author_name[0]}</div>
-                <span class="comment-author">${esc(c.author_name)}</span>
-                <span class="comment-time">${timeAgo(c.created_at)}</span>
-                ${c.author_id === currentUser.id ? `<button class="comment-delete" onclick="deleteComment(${c.id})">삭제</button>` : ''}
-              </div>
-              <div class="comment-body">${esc(c.content)}</div>
-            </div>
-          `).join('')}
-        `;
-      } catch (e) {
-        detail.innerHTML = '<div class="empty-state"><p>로딩 실패</p></div>';
-      }
+  document.getElementById('tabs').addEventListener('click', (e) => {
+    const tab = e.target.closest('.tab');
+    if (!tab) return;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentFilter = tab.dataset.status;
+    loadPortfolios();
+  });
+
+  async function openDetail(id) {
+    currentPortfolioId = id;
+    const p = portfolios.find(x => x.id === id);
+    if (!p) return;
+
+    document.getElementById('detail-name').textContent = p.name;
+    const badge = document.getElementById('detail-status');
+    badge.textContent = STATUS_LABEL[p.status];
+    badge.className = `status-tag ${p.status}`;
+    badge.dataset.id = id;
+    badge.onclick = () => openStatusChange(null, id);
+    document.getElementById('detail-assignee').textContent = p.assignee_name ? `Managed by ${p.assignee_name}` : 'Unassigned';
+    document.getElementById('detail-view').classList.add('open');
+    if (tg) tg.BackButton.show();
+
+    const updateList = document.getElementById('update-list');
+    updateList.innerHTML = '<div class="loading-screen"><div class="spinner"></div></div>';
+
+    try {
+      const res = await fetch(`${API}/api/portfolios/${id}/updates`, { headers: headers() });
+      const updates = await res.json();
+      renderUpdates(updates);
+    } catch (e) {
+      updateList.innerHTML = '<div class="empty-state"><p>Failed to load</p></div>';
+    }
+  }
+
+  function renderUpdates(updates) {
+    const list = document.getElementById('update-list');
+    if (updates.length === 0) {
+      list.innerHTML = '<div class="empty-state"><p>No updates yet</p></div>';
+      return;
     }
 
-    function hideDetail() {
-      showBoardList();
-      loadPosts();
-    }
+    list.innerHTML = updates.map(u => {
+      const attachHtml = (u.attachments || []).map(a =>
+        `<a class="attachment-link" href="${a.gdrive_url}" target="_blank">${a.file_name}</a>`
+      ).join('');
 
-    async function submitComment() {
-      const input = document.getElementById('comment-input');
-      const content = input.value.trim();
-      if (!content) return;
+      const summaryHtml = u.summary
+        ? `<div class="update-summary">${u.summary}</div>` : '';
 
-      const btn = document.getElementById('btn-comment');
-      btn.disabled = true;
+      return `
+        <div class="update-entry" onclick="this.querySelector('.update-summary')?.classList.toggle('expanded')">
+          <div class="update-date">${u.update_date} &middot; ${u.author_name}</div>
+          <div class="update-title">${u.title}</div>
+          ${summaryHtml}
+          ${attachHtml ? `<div class="update-attachments">${attachHtml}</div>` : ''}
+        </div>`;
+    }).join('');
+  }
 
-      try {
-        await fetch('/api/posts/' + currentPostId + '/comments', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            content,
-            author_name: currentUser.name,
-            author_id: currentUser.id
-          })
-        });
-        input.value = '';
-        showPost(currentPostId);
-      } catch (e) {
-        toast('댓글 등록 실패');
-      } finally {
-        btn.disabled = false;
-      }
-    }
+  document.getElementById('back-btn').addEventListener('click', closeDetail);
+  if (tg) tg.BackButton.onClick(closeDetail);
 
-    async function deletePost(id) {
-      if (!confirm('이 게시글을 삭제하시겠습니까?')) return;
-      try {
-        await fetch(`/api/posts/${id}?author_id=${currentUser.id}`, { method: 'DELETE' });
-        toast('삭제되었습니다');
-        showBoardList();
-        loadPosts();
-      } catch (e) {
-        toast('삭제 실패');
-      }
-    }
+  function closeDetail() {
+    document.getElementById('detail-view').classList.remove('open');
+    if (tg) tg.BackButton.hide();
+    currentPortfolioId = null;
+    loadPortfolios();
+  }
 
-    async function deleteComment(id) {
-      if (!confirm('이 댓글을 삭제하시겠습니까?')) return;
-      try {
-        await fetch(`/api/comments/${id}?author_id=${currentUser.id}`, { method: 'DELETE' });
-        showPost(currentPostId);
-      } catch (e) {
-        toast('삭제 실패');
-      }
-    }
-
-    // ─── Helpers ───
-    function esc(str) {
-      const d = document.createElement('div');
-      d.textContent = str;
-      return d.innerHTML;
-    }
-
-    function timeAgo(dateStr) {
-      const d = new Date(dateStr + 'Z');
-      const now = new Date();
-      const diff = (now - d) / 1000;
-      if (diff < 60) return '방금 전';
-      if (diff < 3600) return Math.floor(diff / 60) + '분 전';
-      if (diff < 86400) return Math.floor(diff / 3600) + '시간 전';
-      if (diff < 2592000) return Math.floor(diff / 86400) + '일 전';
-      return d.toLocaleDateString('ko-KR');
-    }
-
-    function toast(msg) {
-      const t = document.getElementById('toast');
-      t.textContent = msg;
-      t.classList.add('show');
-      setTimeout(() => t.classList.remove('show'), 2000);
-    }
-
-    // Enter key for comment
-    document.getElementById('comment-input')?.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        submitComment();
-      }
+  function openStatusChange(e, id) {
+    if (e) e.preventDefault();
+    statusChangeId = id;
+    const p = portfolios.find(x => x.id === id);
+    document.querySelectorAll('.status-option').forEach(opt => {
+      opt.classList.toggle('current', opt.dataset.status === p?.status);
     });
+    document.getElementById('status-overlay').classList.add('open');
+    document.getElementById('status-popup').classList.add('open');
+  }
 
-    // Init portfolio
-    renderPortfolio();
-  </script>
+  document.getElementById('status-overlay').addEventListener('click', (e) => {
+    if (e.target.id === 'status-overlay') {
+      document.getElementById('status-overlay').classList.remove('open');
+      document.getElementById('status-popup').classList.remove('open');
+    }
+  });
+
+  document.querySelectorAll('.status-option').forEach(opt => {
+    opt.addEventListener('click', async () => {
+      const newStatus = opt.dataset.status;
+      try {
+        await fetch(`${API}/api/portfolios/${statusChangeId}`, {
+          method: 'PUT',
+          headers: headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ status: newStatus }),
+        });
+        document.getElementById('status-overlay').classList.remove('open');
+        document.getElementById('status-popup').classList.remove('open');
+        loadPortfolios();
+        if (currentPortfolioId === statusChangeId) {
+          const badge = document.getElementById('detail-status');
+          badge.textContent = STATUS_LABEL[newStatus];
+          badge.className = `status-tag ${newStatus}`;
+        }
+      } catch (e) { alert('Failed to update status'); }
+    });
+  });
+
+  let pressTimer;
+  document.getElementById('card-list').addEventListener('touchstart', (e) => {
+    const row = e.target.closest('.row');
+    if (!row) return;
+    pressTimer = setTimeout(() => openStatusChange(null, parseInt(row.dataset.id)), 500);
+  });
+  document.getElementById('card-list').addEventListener('touchend', () => clearTimeout(pressTimer));
+  document.getElementById('card-list').addEventListener('touchmove', () => clearTimeout(pressTimer));
+
+  function openModal(id) { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
+  });
+
+  document.getElementById('fab-add').addEventListener('click', () => openModal('modal-portfolio'));
+
+  document.getElementById('btn-create-pf').addEventListener('click', async () => {
+    const name = document.getElementById('pf-name').value.trim();
+    const status = document.getElementById('pf-status').value;
+    if (!name) { alert('Enter a name'); return; }
+    const btn = document.getElementById('btn-create-pf');
+    btn.disabled = true;
+    try {
+      await fetch(`${API}/api/portfolios`, {
+        method: 'POST', headers: headers({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ name, status }),
+      });
+      document.getElementById('pf-name').value = '';
+      closeModal('modal-portfolio');
+      loadPortfolios();
+    } catch (e) { alert('Failed'); }
+    finally { btn.disabled = false; }
+  });
+
+  document.getElementById('add-update-btn').addEventListener('click', () => {
+    document.getElementById('up-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('up-title').value = '';
+    document.getElementById('up-summary').value = '';
+    document.getElementById('up-files').value = '';
+    selectedFiles = [];
+    renderFileList();
+    document.getElementById('link-inputs').innerHTML = '<div class="link-row"><input type="url" placeholder="https://drive.google.com/..." class="gdrive-link"></div>';
+    openModal('modal-update');
+  });
+
+  document.getElementById('up-files').addEventListener('change', (e) => {
+    const newFiles = Array.from(e.target.files);
+    const oversized = newFiles.filter(f => f.size > 25 * 1024 * 1024);
+    if (oversized.length > 0) alert(`${oversized.map(f => f.name).join(', ')} exceeds 25MB`);
+    selectedFiles = [...selectedFiles, ...newFiles.filter(f => f.size <= 25 * 1024 * 1024)];
+    renderFileList();
+  });
+
+  function renderFileList() {
+    document.getElementById('file-list').innerHTML = selectedFiles.map((f, i) =>
+      `<span class="file-tag">${f.name} <span class="remove" onclick="removeFile(${i})">×</span></span>`
+    ).join('');
+  }
+
+  function removeFile(i) { selectedFiles.splice(i, 1); renderFileList(); }
+
+  document.getElementById('add-link-btn').addEventListener('click', () => {
+    const container = document.getElementById('link-inputs');
+    const row = document.createElement('div');
+    row.className = 'link-row';
+    row.innerHTML = `<input type="url" placeholder="https://drive.google.com/..." class="gdrive-link"><button class="remove-link" onclick="this.parentElement.remove()">×</button>`;
+    container.appendChild(row);
+  });
+
+  document.getElementById('btn-create-update').addEventListener('click', async () => {
+    const title = document.getElementById('up-title').value.trim();
+    const date = document.getElementById('up-date').value;
+    const summary = document.getElementById('up-summary').value.trim();
+    if (!title) { alert('Enter a title'); return; }
+
+    const btn = document.getElementById('btn-create-update');
+    btn.disabled = true;
+    try {
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('update_date', date);
+      if (summary) formData.append('summary', summary);
+      selectedFiles.forEach(f => formData.append('files', f));
+      document.querySelectorAll('.gdrive-link').forEach(input => {
+        if (input.value.trim()) formData.append('gdrive_link', input.value.trim());
+      });
+      await fetch(`${API}/api/portfolios/${currentPortfolioId}/updates`, {
+        method: 'POST', headers: { 'X-Telegram-Init-Data': initData }, body: formData,
+      });
+      closeModal('modal-update');
+      openDetail(currentPortfolioId);
+    } catch (e) { alert('Failed'); }
+    finally { btn.disabled = false; }
+  });
+
+  loadPortfolios();
+</script>
 </body>
 </html>
