@@ -18,6 +18,17 @@ const app = new Hono<{ Bindings: Bindings }>();
 
 app.use("/api/*", cors());
 
+// Cache buster: HTML files are never cached
+app.use("*", async (c, next) => {
+  await next();
+  const path = c.req.path;
+  if (path.endsWith('.html') || path === '/') {
+    c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+    c.header('Pragma', 'no-cache');
+    c.header('Expires', '0');
+  }
+});
+
 // ─── Telegram initData validation ───
 
 function validateInitData(initData: string, botToken: string): Record<string, string> | null {
@@ -532,6 +543,10 @@ app.post("/api/webhook", async (c) => {
 
   return c.json({ ok: true });
 });
+
+// ─── Static files ───
+app.use("/*", serveStatic({ root: "./", manifest }));
+app.get("*", serveStatic({ path: "./index.html", manifest }));
 
 // ─── Cron: Weekly stale reminder ───
 
