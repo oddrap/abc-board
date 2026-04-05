@@ -111,7 +111,7 @@ async function getGDriveAccessToken(serviceAccountKey: string): Promise<string> 
   const header = btoa(JSON.stringify({ alg: "RS256", typ: "JWT" }));
   const payload = btoa(JSON.stringify({
     iss: sa.client_email,
-    scope: "https://www.googleapis.com/auth/drive.file",
+    scope: "https://www.googleapis.com/auth/drive",
     aud: "https://oauth2.googleapis.com/token",
     iat: now,
     exp: now + 3600,
@@ -158,7 +158,7 @@ async function createGDriveFolder(
   name: string,
   parentId: string
 ): Promise<string> {
-  const res = await fetch("https://www.googleapis.com/drive/v3/files", {
+  const res = await fetch("https://www.googleapis.com/drive/v3/files?supportsAllDrives=true", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -209,7 +209,7 @@ async function uploadToGDrive(
   }
 
   const res = await fetch(
-    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink",
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,webViewLink",
     {
       method: "POST",
       headers: {
@@ -508,12 +508,18 @@ app.post("/api/summarize", authMiddleware, async (c) => {
   if (file.size > 25 * 1024 * 1024) return c.json({ error: "File too large" }, 400);
 
   try {
-    const bytes = await file.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(bytes)));
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    // Chunk-safe base64 encoding (btoa with spread crashes on large files)
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    const base64 = btoa(binary);
     const mimeType = file.type || "application/octet-stream";
 
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${c.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${c.env.GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

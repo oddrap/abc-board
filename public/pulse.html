@@ -1225,26 +1225,70 @@
     selectedFiles = [...selectedFiles, ...validFiles];
     renderFileList();
 
-    // Auto-summarize first file if summary is empty
+    // Auto-fill title from first filename (strip extension and clean up)
+    const titleEl = document.getElementById('up-title');
+    if (validFiles.length > 0 && !titleEl.value.trim()) {
+      const name = validFiles[0].name
+        .replace(/\.[^.]+$/, '')        // remove extension
+        .replace(/[_-]/g, ' ')          // underscores/dashes to spaces
+        .replace(/\s+/g, ' ')           // collapse spaces
+        .trim();
+      titleEl.value = name;
+    }
+
+    // Auto-summarize: call Gemini directly from browser (no Workers proxy)
     const summaryEl = document.getElementById('up-summary');
-    if (validFiles.length > 0 && !summaryEl.value.trim()) {
-      summaryEl.value = 'Summarizing...';
+    const fileToSummarize = validFiles[0];
+    if (fileToSummarize && !summaryEl.value.trim()) {
+      summaryEl.value = 'AI 요약 생성 중...';
       summaryEl.disabled = true;
       try {
-        const formData = new FormData();
-        formData.append('file', validFiles[0]);
-        const res = await fetch(`${API}/api/summarize`, {
-          method: 'POST',
-          headers: { 'X-Telegram-Init-Data': initData },
-          body: formData,
-        });
-        const data = await res.json();
-        summaryEl.value = data.summary || '';
+        const reader = new FileReader();
+        reader.onload = async function() {
+          try {
+            const base64 = reader.result.split(',')[1];
+            const mimeType = fileToSummarize.type || 'application/octet-stream';
+            const GEMINI_KEY = 'AIzaSyBrSw5RHH6YoiM4FN7HBe6S6hbm-qFJTnw';
+
+            console.log('[Summary] Sending to Gemini:', mimeType, Math.round(base64.length/1024)+'KB base64');
+
+            const res = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${GEMINI_KEY}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contents: [{ parts: [
+                    { inlineData: { mimeType, data: base64 } },
+                    { text: '이 문서를 분석하여 다음 형식으로 한국어 요약을 작성해주세요. 2500자 이내로 작성하세요.\n\n1. 매출 현황 요약\n(매출, 수익, 성장률 등 핵심 재무 수치 중심)\n\n2. 문제 상황 요약\n(리스크, 손실, 구조적 문제, 주의사항 중심)\n\n3. 향후 계획 요약\n(엑시트 전략, 사업 확장, 투자 계획 등 미래 방향 중심)\n\n마크다운 없이 일반 텍스트로 작성하세요. 번호와 제목은 유지하세요.' }
+                  ]}],
+                  generationConfig: { maxOutputTokens: 2500, temperature: 0.3 }
+                })
+              }
+            );
+
+            const data = await res.json();
+            console.log('[Summary] Gemini response:', JSON.stringify(data).substring(0, 500));
+
+            if (data?.error) {
+              summaryEl.value = '요약 실패: ' + (data.error.message || 'Unknown error');
+            } else {
+              summaryEl.value = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '요약을 생성하지 못했습니다';
+            }
+          } catch (err) {
+            console.error('[Summary] Error:', err);
+            summaryEl.value = '요약 실패: ' + err.message;
+          } finally {
+            summaryEl.disabled = false;
+            summaryEl.focus();
+          }
+        };
+        reader.onerror = () => { summaryEl.value = '파일 읽기 실패'; summaryEl.disabled = false; };
+        reader.readAsDataURL(fileToSummarize);
       } catch (err) {
         summaryEl.value = '';
-        console.error('Summary error:', err);
-      } finally {
         summaryEl.disabled = false;
+        console.error('Summary error:', err);
       }
     }
   });
